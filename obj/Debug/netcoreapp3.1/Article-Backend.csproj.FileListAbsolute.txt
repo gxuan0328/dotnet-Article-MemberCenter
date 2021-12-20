@@ -409,3 +409,4 @@ C:\Users\OAO\Desktop\Intern\ASP.NET\Article-Backend_sqlcommand\obj\Debug\netcore
 C:\Users\OAO\Desktop\Intern\ASP.NET\Article-Backend_sqlcommand\obj\Debug\netcoreapp3.1\Article-Backend.dll
 C:\Users\OAO\Desktop\Intern\ASP.NET\Article-Backend_sqlcommand\obj\Debug\netcoreapp3.1\Article-Backend.pdb
 C:\Users\OAO\Desktop\Intern\ASP.NET\Article-Backend_sqlcommand\obj\Debug\netcoreapp3.1\Article-Backend.genruntimeconfig.cache
+C:\Users\OAO\Desktop\Intern\ASP.NET\Article-Backend\bin\Debug\netcoreapp3.1\Microsoft.AspNetCore.Authentication.JwtBearer.dll

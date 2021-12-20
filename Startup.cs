@@ -30,7 +30,12 @@ namespace Article_Backend
             services.AddControllers()
                 .AddJsonOptions(options => options.JsonSerializerOptions.PropertyNamingPolicy = null);
 
-            services.AddCors(options => options.AddDefaultPolicy(builder => builder.AllowAnyMethod()));
+            services.AddCors(options => options.AddDefaultPolicy(builder => builder.WithOrigins("http://localhost:4200")
+                                                                                   .AllowAnyHeader()
+                                                                                   .AllowAnyMethod()));
+
+            //禁止自動回傳status code 400
+            services.Configure<ApiBehaviorOptions>(options => options.SuppressModelStateInvalidFilter = true);
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

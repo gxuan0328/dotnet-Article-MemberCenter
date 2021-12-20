@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "c:\\Users\\OAO\\Desktop\\Intern\\ASP.NET\\Article-Backend_sqlcommand\\Article-Backend.csproj": {}
+    "C:\\Users\\OAO\\Desktop\\Intern\\ASP.NET\\Article-Backend\\Article-Backend.csproj": {}
   },
   "projects": {
-    "c:\\Users\\OAO\\Desktop\\Intern\\ASP.NET\\Article-Backend_sqlcommand\\Article-Backend.csproj": {
+    "C:\\Users\\OAO\\Desktop\\Intern\\ASP.NET\\Article-Backend\\Article-Backend.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "c:\\Users\\OAO\\Desktop\\Intern\\ASP.NET\\Article-Backend_sqlcommand\\Article-Backend.csproj",
+        "projectUniqueName": "C:\\Users\\OAO\\Desktop\\Intern\\ASP.NET\\Article-Backend\\Article-Backend.csproj",
         "projectName": "Article-Backend",
-        "projectPath": "c:\\Users\\OAO\\Desktop\\Intern\\ASP.NET\\Article-Backend_sqlcommand\\Article-Backend.csproj",
+        "projectPath": "C:\\Users\\OAO\\Desktop\\Intern\\ASP.NET\\Article-Backend\\Article-Backend.csproj",
         "packagesPath": "C:\\Users\\OAO\\.nuget\\packages\\",
-        "outputPath": "c:\\Users\\OAO\\Desktop\\Intern\\ASP.NET\\Article-Backend_sqlcommand\\obj\\",
+        "outputPath": "C:\\Users\\OAO\\Desktop\\Intern\\ASP.NET\\Article-Backend\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\OAO\\AppData\\Roaming\\NuGet\\NuGet.Config"
