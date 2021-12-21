@@ -12,7 +12,7 @@ namespace Article_Backend.Controllers
 {
     [Route("[controller]")]
     [ApiController]
-    public class ArticleController : Controller
+    public class ArticleController : ControllerBase
     {
         private readonly IConfiguration _configuration;
         public ArticleController(IConfiguration configuration)
