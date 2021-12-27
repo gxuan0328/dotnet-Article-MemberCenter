@@ -1,21 +1,17 @@
 using System;
-using System.Collections.Generic;
 using System.Data;
 using System.IdentityModel.Tokens.Jwt;
-using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
 
@@ -60,6 +56,7 @@ namespace Article_Backend
                         {
                             try
                             {
+                                context.HandleResponse();
                                 Response<string> result = new Response<string>();
                                 result.StatusCode = Status.Unauthorized;
                                 result.Message = nameof(Status.Unauthorized);
@@ -71,7 +68,7 @@ namespace Article_Backend
                             }
                             catch (Exception e)
                             {
-                                Console.WriteLine("ERROR:" + e);
+                                Console.WriteLine($"ERROR: {e.Message}");
                                 Response<string> result = new Response<string>();
                                 result.StatusCode = Status.SystemError;
                                 result.Message = nameof(Status.SystemError);
@@ -87,9 +84,9 @@ namespace Article_Backend
                         {
                             try
                             {
-                                JwtSecurityTokenHandler handler = new JwtSecurityTokenHandler();
                                 string authorization = context.Request.Headers["Authorization"];
                                 authorization = authorization.Replace("Bearer ", "");
+                                JwtSecurityTokenHandler handler = new JwtSecurityTokenHandler();
                                 JwtSecurityToken token = handler.ReadJwtToken(authorization);
                                 UserDetail decode = new UserDetail
                                 {
@@ -104,7 +101,7 @@ namespace Article_Backend
                                     SqlCommand command = new SqlCommand(queryString, connection);
                                     command.Parameters.AddRange(new SqlParameter[]
                                     {
-                                    new SqlParameter("@User_Id", decode.Id)
+                                        new SqlParameter("@User_Id", SqlDbType.Int) { Value = decode.Id }
                                     });
                                     connection.Open();
                                     SqlDataReader reader = command.ExecuteReader();
@@ -138,9 +135,9 @@ namespace Article_Backend
                                 context.HttpContext.Items.Add("Token", decode);
                                 return Task.CompletedTask;
                             }
-                            catch(Exception e)
+                            catch (Exception e)
                             {
-                                Console.WriteLine("ERROR:"+e);
+                                Console.WriteLine($"ERROR: {e.Message}");
                                 Response<string> result = new Response<string>();
                                 result.StatusCode = Status.SystemError;
                                 result.Message = nameof(Status.SystemError);

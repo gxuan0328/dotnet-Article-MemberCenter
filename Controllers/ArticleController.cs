@@ -2,17 +2,15 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
-using Newtonsoft.Json;
 
 namespace Article_Backend.Controllers
 {
-    [Route("[controller]")]
+    [Route("article")]
     [ApiController]
     public class ArticleController : ControllerBase
     {
@@ -24,7 +22,7 @@ namespace Article_Backend.Controllers
 
         [Authorize]
         [HttpPost]
-        public Response<Article> PostArticle(Article article)
+        public Response<Article> PostArticle([FromBody] Article article)
         {
             Response<Article> result = new Response<Article>();
             try
@@ -44,9 +42,9 @@ namespace Article_Backend.Controllers
                     SqlCommand command = new SqlCommand(queryString, connection);
                     command.Parameters.AddRange(new SqlParameter[]
                     {
-                        new SqlParameter("@Title", article.Title),
-                        new SqlParameter("@User_Id", article.User_Id),
-                        new SqlParameter("@Content", article.Content),
+                        new SqlParameter("@Title", SqlDbType.NVarChar){Value = article.Title},
+                        new SqlParameter("@User_Id", SqlDbType.Int){Value = article.User_Id},
+                        new SqlParameter("@Content", SqlDbType.NVarChar){Value = article.Content},
                     });
                     connection.Open();
                     int check = command.ExecuteNonQuery();
@@ -58,9 +56,9 @@ namespace Article_Backend.Controllers
                     return result;
                 }
             }
-            catch(Exception e)
+            catch (Exception e)
             {
-                Console.WriteLine("ERROR: "+e.Message);
+                Console.WriteLine($"ERROR: {e.Message}");
                 result.StatusCode = Status.SystemError;
                 result.Message = nameof(Status.SystemError);
                 result.Data = null;
@@ -69,7 +67,7 @@ namespace Article_Backend.Controllers
         }
 
         [HttpGet("{id}")]
-        public Response<Article> GetArticle(int id)
+        public Response<Article> GetArticle([FromRoute] int id)
         {
             Response<Article> result = new Response<Article>();
             try
@@ -85,7 +83,7 @@ namespace Article_Backend.Controllers
                     SqlCommand command = new SqlCommand(queryString, connection);
                     command.Parameters.AddRange(new SqlParameter[]
                     {
-                        new SqlParameter("@Id", id)
+                        new SqlParameter("@Id", SqlDbType.Int){Value = id}
                     });
                     connection.Open();
                     SqlDataReader reader = command.ExecuteReader();
@@ -117,8 +115,9 @@ namespace Article_Backend.Controllers
                     return result;
                 }
             }
-            catch
+            catch (Exception e)
             {
+                Console.WriteLine($"ERROR: {e.Message}");
                 result.StatusCode = Status.SystemError;
                 result.Message = nameof(Status.SystemError);
                 result.Data = null;
@@ -128,7 +127,7 @@ namespace Article_Backend.Controllers
 
         [Authorize]
         [HttpPut("{id}")]
-        public Response<Article> PutArticle(int id, Article article)
+        public Response<Article> PutArticle([FromRoute] int id, [FromBody] Article article)
         {
             Response<Article> result = new Response<Article>();
             try
@@ -158,8 +157,8 @@ namespace Article_Backend.Controllers
                     SqlCommand command1 = new SqlCommand(queryString1, connection);
                     command1.Parameters.AddRange(new SqlParameter[]
                     {
-                        new SqlParameter("@Id", id),
-                        new SqlParameter("@Token_Id", token.Id)
+                        new SqlParameter("@Id", SqlDbType.Int){Value = id},
+                        new SqlParameter("@Token_Id", SqlDbType.Int){Value = token.Id}
                     });
                     connection.Open();
                     SqlDataReader reader = command1.ExecuteReader();
@@ -177,10 +176,10 @@ namespace Article_Backend.Controllers
                     SqlCommand command2 = new SqlCommand(queryString2, connection);
                     command2.Parameters.AddRange(new SqlParameter[]
                     {
-                    new SqlParameter("@Title", article.Title),
-                    new SqlParameter("@Content", article.Content),
-                    new SqlParameter("@Token_Id", token.Id),
-                    new SqlParameter("@Id", article.Id)
+                    new SqlParameter("@Title", SqlDbType.NVarChar){Value = article.Title},
+                    new SqlParameter("@Content",SqlDbType.NVarChar ){Value = article.Content},
+                    new SqlParameter("@Token_Id", SqlDbType.Int){Value = token.Id},
+                    new SqlParameter("@Id", SqlDbType.Int){Value = article.Id}
                     });
                     connection.Open();
                     int check = command2.ExecuteNonQuery();
@@ -191,8 +190,9 @@ namespace Article_Backend.Controllers
                     return result;
                 }
             }
-            catch
+            catch (Exception e)
             {
+                Console.WriteLine($"ERROR: {e.Message}");
                 result.StatusCode = Status.SystemError;
                 result.Message = nameof(Status.SystemError);
                 result.Data = null;
@@ -202,12 +202,12 @@ namespace Article_Backend.Controllers
 
         [Authorize]
         [HttpDelete("{id}")]
-        public Response<Article> DeleteArticle(int id)
+        public Response<Article> DeleteArticle([FromRoute] int id)
         {
             Response<Article> result = new Response<Article>();
             try
             {
-                UserDetail token =  (UserDetail)HttpContext.Items["Token"];
+                UserDetail token = (UserDetail)HttpContext.Items["Token"];
                 string conn = _configuration.GetValue<string>("ConnectionStrings:DevConnection");
                 using (SqlConnection connection = new SqlConnection(conn))
                 {
@@ -218,8 +218,8 @@ namespace Article_Backend.Controllers
                     SqlCommand command1 = new SqlCommand(queryString1, connection);
                     command1.Parameters.AddRange(new SqlParameter[]
                     {
-                        new SqlParameter("@Id", id),
-                        new SqlParameter("@Token_Id", token.Id)
+                        new SqlParameter("@Id", SqlDbType.Int){Value = id},
+                        new SqlParameter("@Token_Id", SqlDbType.Int){Value = token.Id}
                     });
                     connection.Open();
                     SqlDataReader reader = command1.ExecuteReader();
@@ -236,7 +236,7 @@ namespace Article_Backend.Controllers
                     SqlCommand command2 = new SqlCommand(queryString2, connection);
                     command2.Parameters.AddRange(new SqlParameter[]
                     {
-                        new SqlParameter("@Id", id)
+                        new SqlParameter("@Id", SqlDbType.Int){Value = id}
                     });
                     connection.Open();
                     int check = command2.ExecuteNonQuery();
@@ -254,8 +254,9 @@ namespace Article_Backend.Controllers
                     return result;
                 }
             }
-            catch
+            catch (Exception e)
             {
+                Console.WriteLine($"ERROR: {e.Message}");
                 result.StatusCode = Status.SystemError;
                 result.Message = nameof(Status.SystemError);
                 result.Data = null;
@@ -289,14 +290,16 @@ namespace Article_Backend.Controllers
                     return result;
                 }
             }
-            catch
+            catch (Exception e)
             {
+                Console.WriteLine($"ERROR: {e.Message}");
                 result.StatusCode = Status.SystemError;
                 result.Message = nameof(Status.SystemError);
                 result.Data = null;
                 return result;
             }
         }
+
         [Authorize]
         [HttpGet("id/personal")]
         public Response<List<int>> GetPersonalArticleId()
@@ -314,7 +317,7 @@ namespace Article_Backend.Controllers
                     SqlCommand command = new SqlCommand(queryString, connection);
                     command.Parameters.AddRange(new SqlParameter[]
                     {
-                        new SqlParameter("@Token_Id", token.Id)
+                        new SqlParameter("@Token_Id", SqlDbType.Int){Value = token.Id}
                     });
                     List<int> articleId = new List<int>();
                     connection.Open();
@@ -330,8 +333,9 @@ namespace Article_Backend.Controllers
                     return result;
                 }
             }
-            catch
+            catch (Exception e)
             {
+                Console.WriteLine($"ERROR: {e.Message}");
                 result.StatusCode = Status.SystemError;
                 result.Message = nameof(Status.SystemError);
                 result.Data = null;
@@ -339,14 +343,13 @@ namespace Article_Backend.Controllers
             }
         }
 
-
         [HttpGet("search")]
-        public Response<List<int>> GetSearchIdList(string title, string author, string fromDate, string toDate)
+        public Response<List<int>> GetSearchIdList([FromQuery] string title, [FromQuery] string author, [FromQuery] string fromDate, [FromQuery] string toDate)
         {
             Response<List<int>> result = new Response<List<int>>();
             try
             {
-                if(String.IsNullOrEmpty(title+author+fromDate+toDate))
+                if (String.IsNullOrEmpty(title + author + fromDate + toDate))
                 {
                     result.StatusCode = Status.BadRequest;
                     result.Message = nameof(Status.BadRequest);
@@ -363,24 +366,23 @@ namespace Article_Backend.Controllers
                     {
                         title = $"%{title}%";
                         options.Add("[Title] like @Title");
-                        parameters.Add(new SqlParameter("@Title", title));
+                        parameters.Add(new SqlParameter("@Title", SqlDbType.NVarChar) { Value = title });
                     }
                     if (!String.IsNullOrEmpty(author))
                     {
                         options.Add("[User].[Name] = @Author");
-                        parameters.Add(new SqlParameter("@Author", author));
+                        parameters.Add(new SqlParameter("@Author", SqlDbType.NVarChar) { Value = author });
 
                     }
                     if (!String.IsNullOrEmpty(fromDate))
                     {
                         options.Add("[Articles].[CreateDatetime] >= @FromDate");
-                        parameters.Add(new SqlParameter("@FromDate", fromDate));
-
+                        parameters.Add(new SqlParameter("@FromDate", SqlDbType.DateTime) { Value = fromDate });
                     }
                     if (!String.IsNullOrEmpty(toDate))
                     {
                         options.Add("[Articles].[CreateDatetime] <= @ToDate");
-                        parameters.Add(new SqlParameter("@ToDate", toDate));
+                        parameters.Add(new SqlParameter("@ToDate", SqlDbType.DateTime) { Value = toDate });
 
                     }
                     string queryString = @"select [Articles].[Id] 
@@ -421,9 +423,9 @@ namespace Article_Backend.Controllers
                     return result;
                 }
             }
-            catch(Exception e)
+            catch (Exception e)
             {
-                Console.WriteLine("Error: "+e.Message);
+                Console.WriteLine("Error: " + e.Message);
                 result.StatusCode = Status.SystemError;
                 result.Message = nameof(Status.SystemError);
                 result.Data = null;
@@ -432,7 +434,7 @@ namespace Article_Backend.Controllers
         }
 
         [HttpGet("search/{title}")]
-        public Response<List<Search>> GetSearchList(string title)
+        public Response<List<Search>> GetSearchList([FromRoute] string title)
         {
             Response<List<Search>> result = new Response<List<Search>>();
             try
@@ -447,7 +449,7 @@ namespace Article_Backend.Controllers
                     SqlCommand command = new SqlCommand(queryString, connection);
                     command.Parameters.AddRange(new SqlParameter[]
                     {
-                            new SqlParameter("@Title", title)
+                            new SqlParameter("@Title", SqlDbType.NVarChar){Value = title}
                     });
                     List<Search> search = new List<Search>();
                     connection.Open();
@@ -466,8 +468,9 @@ namespace Article_Backend.Controllers
                     return result;
                 }
             }
-            catch
+            catch (Exception e)
             {
+                Console.WriteLine($"ERROR: {e.Message}");
                 result.StatusCode = Status.SystemError;
                 result.Message = nameof(Status.SystemError);
                 result.Data = null;
@@ -476,7 +479,7 @@ namespace Article_Backend.Controllers
         }
 
         [HttpGet("list")]
-        public Response<List<Articles>> GetArticleList(string list)
+        public Response<List<Articles>> GetArticleList([FromQuery] string list)
         {
             Response<List<Articles>> result = new Response<List<Articles>>();
             try
@@ -491,7 +494,6 @@ namespace Article_Backend.Controllers
                 string conn = _configuration.GetValue<string>("ConnectionStrings:DevConnection");
                 using (SqlConnection connection = new SqlConnection(conn))
                 {
-
                     string[] articleList = list.Split(',');
                     List<Articles> articles = new List<Articles>();
                     string options = "";
@@ -501,12 +503,12 @@ namespace Article_Backend.Controllers
                         if (item.index == 0)
                         {
                             options = String.Concat(options, $"@Id_{item.index}");
-                            parameters.Add(new SqlParameter($"@Id_{item.index}", Int32.Parse(item.value)));
+                            parameters.Add(new SqlParameter($"@Id_{item.index}", SqlDbType.Int) { Value = Int32.Parse(item.value) });
                         }
                         else
                         {
                             options = String.Concat(options, ",", $"@Id_{item.index}");
-                            parameters.Add(new SqlParameter($"@Id_{item.index}", Int32.Parse(item.value)));
+                            parameters.Add(new SqlParameter($"@Id_{item.index}", SqlDbType.Int) { Value = Int32.Parse(item.value) });
                         }
                     }
                     string queryString = @$"select [Articles].[Id], [User].[Name], [Articles].[Title], [Articles].[CreateDatetime] 
@@ -543,8 +545,9 @@ namespace Article_Backend.Controllers
                 }
 
             }
-            catch
+            catch (Exception e)
             {
+                Console.WriteLine($"ERROR: {e.Message}");
                 result.StatusCode = Status.SystemError;
                 result.Message = nameof(Status.SystemError);
                 result.Data = null;
