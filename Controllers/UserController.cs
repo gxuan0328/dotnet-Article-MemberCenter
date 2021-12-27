@@ -67,7 +67,6 @@ namespace Article_Backend.Controllers
                         userDetail.Id = reader.GetInt32("Id");
                         userDetail.Name = reader.GetString("Name");
                         userDetail.Status = reader.GetInt32("Status");
-                        Console.WriteLine($"content: {userDetail.Id} and {userDetail.Name} and {userDetail.Status}");
                     }
                     connection.Close();
                     byte[] key = Encoding.ASCII.GetBytes(_configuration["JwtSetting:Key"]);
@@ -85,7 +84,6 @@ namespace Article_Backend.Controllers
                     JwtSecurityTokenHandler tokenHandler = new JwtSecurityTokenHandler();
                     SecurityToken securityToken = tokenHandler.CreateToken(tokenDescriptor);
                     string token = tokenHandler.WriteToken(securityToken);
-                    Console.WriteLine($"jwt token: {token}");
                     string queryString1 = @"update [ArticleDB].[dbo].[Token] 
                                             set [Token]=@Token, [UpdateDatetime]=GETUTCDATE() 
                                             where [User_Id]=@User_Id";
@@ -97,7 +95,6 @@ namespace Article_Backend.Controllers
                     });
                     connection.Open();
                     int check = command1.ExecuteNonQuery();
-                    Console.WriteLine("check is update or not? "+check);
                     connection.Close();
                     result.StatusCode = Status.OK;
                     result.Message = nameof(Status.OK);

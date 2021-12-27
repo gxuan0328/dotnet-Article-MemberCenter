@@ -58,52 +58,57 @@ namespace Article_Backend
                     {
                         OnChallenge = context =>
                         {
-                            Response<string> result = new Response<string>();
-                            result.StatusCode = Status.Unauthorized;
-                            result.Message = nameof(Status.Unauthorized);
-                            result.Data = null;
-                            context.Response.StatusCode = 200;
-                            context.Response.ContentType = "application/json";
-                            context.Response.WriteAsync(JsonConvert.SerializeObject(result));
-                            return Task.CompletedTask;
+                            try
+                            {
+                                Response<string> result = new Response<string>();
+                                result.StatusCode = Status.Unauthorized;
+                                result.Message = nameof(Status.Unauthorized);
+                                result.Data = null;
+                                context.Response.StatusCode = 200;
+                                context.Response.ContentType = "application/json";
+                                context.Response.WriteAsync(JsonConvert.SerializeObject(result));
+                                return Task.CompletedTask;
+                            }
+                            catch (Exception e)
+                            {
+                                Console.WriteLine("ERROR:" + e);
+                                Response<string> result = new Response<string>();
+                                result.StatusCode = Status.SystemError;
+                                result.Message = nameof(Status.SystemError);
+                                result.Data = null;
+                                context.Response.StatusCode = 200;
+                                context.Response.ContentType = "application/json";
+                                context.Response.WriteAsync(JsonConvert.SerializeObject(result));
+                                return Task.CompletedTask;
+                            }
+
                         },
                         OnTokenValidated = context =>
                         {
-                            JwtSecurityTokenHandler handler = new JwtSecurityTokenHandler();
-                            string authorization = context.Request.Headers["Authorization"];
-                            authorization = authorization.Replace("Bearer ", "");
-                            JwtSecurityToken token = handler.ReadJwtToken(authorization);
-                            UserDetail decode = new UserDetail
+                            try
                             {
-                                Id = Convert.ToInt32(token.Payload["Id"]),
-                                Name = token.Payload["Name"].ToString(),
-                                Status = Convert.ToInt32(token.Payload["Status"])
-                            };
-                            string conn = Configuration.GetValue<string>("ConnectionStrings:DevConnection");
-                            using (SqlConnection connection = new SqlConnection(conn))
-                            {
-                                string queryString = "select [Token] from [ArticleDB].[dbo].[Token] where [User_Id]=@User_Id";
-                                SqlCommand command = new SqlCommand(queryString, connection);
-                                command.Parameters.AddRange(new SqlParameter[]
+                                JwtSecurityTokenHandler handler = new JwtSecurityTokenHandler();
+                                string authorization = context.Request.Headers["Authorization"];
+                                authorization = authorization.Replace("Bearer ", "");
+                                JwtSecurityToken token = handler.ReadJwtToken(authorization);
+                                UserDetail decode = new UserDetail
                                 {
+                                    Id = Convert.ToInt32(token.Payload["Id"]),
+                                    Name = token.Payload["Name"].ToString(),
+                                    Status = Convert.ToInt32(token.Payload["Status"])
+                                };
+                                string conn = Configuration.GetValue<string>("ConnectionStrings:DevConnection");
+                                using (SqlConnection connection = new SqlConnection(conn))
+                                {
+                                    string queryString = "select [Token] from [ArticleDB].[dbo].[Token] where [User_Id]=@User_Id";
+                                    SqlCommand command = new SqlCommand(queryString, connection);
+                                    command.Parameters.AddRange(new SqlParameter[]
+                                    {
                                     new SqlParameter("@User_Id", decode.Id)
-                                });
-                                connection.Open();
-                                SqlDataReader reader = command.ExecuteReader();
-                                if (!reader.HasRows)
-                                {
-                                    Response<string> result = new Response<string>();
-                                    result.StatusCode = Status.Forbidden;
-                                    result.Message = nameof(Status.Forbidden);
-                                    result.Data = null;
-                                    context.Response.StatusCode = 200;
-                                    context.Response.ContentType = "application/json";
-                                    context.Response.WriteAsync(JsonConvert.SerializeObject(result));
-                                    return Task.CompletedTask;
-                                }
-                                if(reader.Read())
-                                {
-                                    if(reader.GetString("Token") != authorization)
+                                    });
+                                    connection.Open();
+                                    SqlDataReader reader = command.ExecuteReader();
+                                    if (!reader.HasRows)
                                     {
                                         Response<string> result = new Response<string>();
                                         result.StatusCode = Status.Forbidden;
@@ -114,11 +119,37 @@ namespace Article_Backend
                                         context.Response.WriteAsync(JsonConvert.SerializeObject(result));
                                         return Task.CompletedTask;
                                     }
+                                    if (reader.Read())
+                                    {
+                                        if (reader.GetString("Token") != authorization)
+                                        {
+                                            Response<string> result = new Response<string>();
+                                            result.StatusCode = Status.Forbidden;
+                                            result.Message = nameof(Status.Forbidden);
+                                            result.Data = null;
+                                            context.Response.StatusCode = 200;
+                                            context.Response.ContentType = "application/json";
+                                            context.Response.WriteAsync(JsonConvert.SerializeObject(result));
+                                            return Task.CompletedTask;
+                                        }
+                                    }
+                                    connection.Close();
                                 }
-                                connection.Close();
+                                context.HttpContext.Items.Add("Token", decode);
+                                return Task.CompletedTask;
                             }
-                            context.HttpContext.Items.Add("Token", decode);
-                            return Task.CompletedTask;
+                            catch(Exception e)
+                            {
+                                Console.WriteLine("ERROR:"+e);
+                                Response<string> result = new Response<string>();
+                                result.StatusCode = Status.SystemError;
+                                result.Message = nameof(Status.SystemError);
+                                result.Data = null;
+                                context.Response.StatusCode = 200;
+                                context.Response.ContentType = "application/json";
+                                context.Response.WriteAsync(JsonConvert.SerializeObject(result));
+                                return Task.CompletedTask;
+                            }
                         }
                     };
                 });

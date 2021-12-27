@@ -22,7 +22,7 @@ namespace Article_Backend.Controllers
             _configuration = configuration;
         }
 
-
+        [Authorize]
         [HttpPost]
         public Response<Article> PostArticle(Article article)
         {
@@ -45,7 +45,7 @@ namespace Article_Backend.Controllers
                     command.Parameters.AddRange(new SqlParameter[]
                     {
                         new SqlParameter("@Title", article.Title),
-                        new SqlParameter("@User_Id", article.User_ID),
+                        new SqlParameter("@User_Id", article.User_Id),
                         new SqlParameter("@Content", article.Content),
                     });
                     connection.Open();
@@ -67,7 +67,7 @@ namespace Article_Backend.Controllers
                 return result;
             }
         }
-        [Authorize]
+
         [HttpGet("{id}")]
         public Response<Article> GetArticle(int id)
         {
@@ -102,7 +102,7 @@ namespace Article_Backend.Controllers
                     {
                         temp.Id = reader.GetInt32("Id");
                         temp.Title = reader.GetString("Title");
-                        temp.User_ID = reader.GetInt32("User_ID");
+                        temp.User_Id = reader.GetInt32("User_ID");
                         temp.Name = reader.GetString("Name");
                         temp.Content = reader.GetString("Content");
                         temp.CreateDatetime = reader.GetDateTime("CreateDatetime");
@@ -126,12 +126,14 @@ namespace Article_Backend.Controllers
             }
         }
 
+        [Authorize]
         [HttpPut("{id}")]
         public Response<Article> PutArticle(int id, Article article)
         {
             Response<Article> result = new Response<Article>();
             try
             {
+                UserDetail token = (UserDetail)HttpContext.Items["Token"];
                 if (!ModelState.IsValid)
                 {
                     result.StatusCode = Status.BadRequest;
@@ -156,28 +158,17 @@ namespace Article_Backend.Controllers
                     SqlCommand command1 = new SqlCommand(queryString1, connection);
                     command1.Parameters.AddRange(new SqlParameter[]
                     {
-                    new SqlParameter("@Id", id),
-                    //TODO:
-                    //使用JWT後，將article.User_ID改為token內的user_Id
-                    new SqlParameter("@Token_Id", article.User_ID)
+                        new SqlParameter("@Id", id),
+                        new SqlParameter("@Token_Id", token.Id)
                     });
-                    List<ArticleId> articleId = new List<ArticleId>();
-                    ArticleId temp = new ArticleId();
                     connection.Open();
                     SqlDataReader reader = command1.ExecuteReader();
-                    //TODO:
-                    //使用JWT後，加上比對token.status==2
-                    if (!reader.HasRows)
+                    if (!reader.HasRows && token.Status != 2)
                     {
                         result.StatusCode = Status.Forbidden;
                         result.Message = nameof(Status.Forbidden);
                         result.Data = null;
                         return result;
-                    }
-                    if (reader.Read())
-                    {
-                        temp.Id = reader.GetInt32("Id");
-                        articleId.Add(temp);
                     }
                     connection.Close();
                     string queryString2 = @"update [ArticleDB].[dbo].[Articles] 
@@ -188,9 +179,7 @@ namespace Article_Backend.Controllers
                     {
                     new SqlParameter("@Title", article.Title),
                     new SqlParameter("@Content", article.Content),
-                    //TODO:
-                    //使用JWT後，將article.User_ID改為token內的user_Id
-                    new SqlParameter("@Token_Id", article.User_ID),
+                    new SqlParameter("@Token_Id", token.Id),
                     new SqlParameter("@Id", article.Id)
                     });
                     connection.Open();
@@ -211,12 +200,14 @@ namespace Article_Backend.Controllers
             }
         }
 
+        [Authorize]
         [HttpDelete("{id}")]
         public Response<Article> DeleteArticle(int id)
         {
             Response<Article> result = new Response<Article>();
             try
             {
+                UserDetail token =  (UserDetail)HttpContext.Items["Token"];
                 string conn = _configuration.GetValue<string>("ConnectionStrings:DevConnection");
                 using (SqlConnection connection = new SqlConnection(conn))
                 {
@@ -227,28 +218,17 @@ namespace Article_Backend.Controllers
                     SqlCommand command1 = new SqlCommand(queryString1, connection);
                     command1.Parameters.AddRange(new SqlParameter[]
                     {
-                            new SqlParameter("@Id", id),
-                            //TODO:
-                            //使用JWT後，將2改為token內的user_Id
-                            new SqlParameter("@Token_Id", 2)
+                        new SqlParameter("@Id", id),
+                        new SqlParameter("@Token_Id", token.Id)
                     });
-                    List<ArticleId> articleId = new List<ArticleId>();
-                    ArticleId temp = new ArticleId();
                     connection.Open();
                     SqlDataReader reader = command1.ExecuteReader();
-                    //TODO:
-                    //使用JWT後，加上比對token.status==2
-                    if (!reader.HasRows)
+                    if (!reader.HasRows && token.Status != 2)
                     {
                         result.StatusCode = Status.Forbidden;
                         result.Message = nameof(Status.Forbidden);
                         result.Data = null;
                         return result;
-                    }
-                    if (reader.Read())
-                    {
-                        temp.Id = reader.GetInt32("Id");
-                        articleId.Add(temp);
                     }
                     connection.Close();
                     string queryString2 = @"delete [ArticleDB].[dbo].[Articles] 
@@ -317,8 +297,47 @@ namespace Article_Backend.Controllers
                 return result;
             }
         }
-
-        // [HttpGet("id/personal")]
+        [Authorize]
+        [HttpGet("id/personal")]
+        public Response<List<int>> GetPersonalArticleId()
+        {
+            Response<List<int>> result = new Response<List<int>>();
+            try
+            {
+                UserDetail token = (UserDetail)HttpContext.Items["Token"];
+                string conn = _configuration.GetValue<string>("ConnectionStrings:DevConnection");
+                using (SqlConnection connection = new SqlConnection(conn))
+                {
+                    string queryString = @"select [Articles].[Id] 
+                                            from [ArticleDB].[dbo].[Articles] 
+                                            where [Articles].[User_Id]=@Token_Id";
+                    SqlCommand command = new SqlCommand(queryString, connection);
+                    command.Parameters.AddRange(new SqlParameter[]
+                    {
+                        new SqlParameter("@Token_Id", token.Id)
+                    });
+                    List<int> articleId = new List<int>();
+                    connection.Open();
+                    SqlDataReader reader = command.ExecuteReader();
+                    while (reader.Read())
+                    {
+                        articleId.Add(reader.GetInt32("Id"));
+                    }
+                    connection.Close();
+                    result.StatusCode = Status.OK;
+                    result.Message = nameof(Status.OK);
+                    result.Data = articleId;
+                    return result;
+                }
+            }
+            catch
+            {
+                result.StatusCode = Status.SystemError;
+                result.Message = nameof(Status.SystemError);
+                result.Data = null;
+                return result;
+            }
+        }
 
 
         [HttpGet("search")]
@@ -327,7 +346,6 @@ namespace Article_Backend.Controllers
             Response<List<int>> result = new Response<List<int>>();
             try
             {
-                Console.WriteLine("string: "+title + author + fromDate + toDate);
                 if(String.IsNullOrEmpty(title+author+fromDate+toDate))
                 {
                     result.StatusCode = Status.BadRequest;
@@ -480,8 +498,6 @@ namespace Article_Backend.Controllers
                     List<SqlParameter> parameters = new List<SqlParameter>();
                     foreach (var item in articleList.Select((value, index) => new { value, index }))
                     {
-                        Console.WriteLine($"in {item.index}");
-
                         if (item.index == 0)
                         {
                             options = String.Concat(options, $"@Id_{item.index}");
