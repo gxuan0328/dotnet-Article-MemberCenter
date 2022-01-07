@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 
 namespace Article_Backend.Controllers
 {
@@ -14,46 +15,50 @@ namespace Article_Backend.Controllers
     [ApiController]
     public class ArticleController : ControllerBase
     {
-        private readonly IConfiguration _configuration;
-        public ArticleController(IConfiguration configuration)
+        private readonly ConnectionStrings _connect;
+        public ArticleController(IOptions<ConnectionStrings> connect)
         {
-            _configuration = configuration;
+            _connect = connect.Value;
         }
 
-        [Authorize]
+        [TypeFilter(typeof(Authorize))]
         [HttpPost]
-        public Response<Article> PostArticle([FromBody] Article article)
+        public Response<Article> PostArticle([FromBody] NewArticle article)
         {
             Response<Article> result = new Response<Article>();
             try
             {
+                UserDetail token = (UserDetail)HttpContext.Items["Token"];
                 if (!ModelState.IsValid)
                 {
                     result.StatusCode = Status.BadRequest;
                     result.Message = nameof(Status.BadRequest);
                     result.Data = null;
-                    return result;
                 }
-                string conn = _configuration.GetValue<string>("ConnectionStrings:DevConnection");
-                using (SqlConnection connection = new SqlConnection(conn))
+                else
                 {
-                    string queryString = @"insert into [ArticleDB].[dbo].[Articles] ([Title], [User_Id], [Content], [Editor]) 
-                                            values (@Title, @User_Id, @Content, @User_Id)";
-                    SqlCommand command = new SqlCommand(queryString, connection);
-                    command.Parameters.AddRange(new SqlParameter[]
+                    using (SqlConnection connection = new SqlConnection(_connect.DevConnection))
                     {
-                        new SqlParameter("@Title", SqlDbType.NVarChar){Value = article.Title},
-                        new SqlParameter("@User_Id", SqlDbType.Int){Value = article.User_Id},
-                        new SqlParameter("@Content", SqlDbType.NVarChar){Value = article.Content},
-                    });
-                    connection.Open();
-                    int check = command.ExecuteNonQuery();
-                    connection.Close();
-
+                        string queryString = @"insert into [ArticleDB].[dbo].[Articles] ([Title], [User_Id], [Content], [Editor]) 
+                                                values (@Title, @Token_Id, @Content, @Token_Id)";
+                        SqlCommand command = new SqlCommand(queryString, connection);
+                        command.Parameters.AddRange(new SqlParameter[]
+                        {
+                            new SqlParameter("@Title", SqlDbType.NVarChar, 100){Value = article.Title},
+                            new SqlParameter("@Token_Id", SqlDbType.Int){Value = token.Id},
+                            new SqlParameter("@Content", SqlDbType.NVarChar, 2000){Value = article.Content},
+                        });
+                        connection.Open();
+                        int check = command.ExecuteNonQuery();
+                        connection.Close();
+                        if (check != 1)
+                        {
+                            throw new Exception("command execute failed");
+                        }
+                    }
                     result.StatusCode = Status.OK;
                     result.Message = nameof(Status.OK);
                     result.Data = null;
-                    return result;
                 }
             }
             catch (Exception e)
@@ -62,8 +67,8 @@ namespace Article_Backend.Controllers
                 result.StatusCode = Status.SystemError;
                 result.Message = nameof(Status.SystemError);
                 result.Data = null;
-                return result;
             }
+            return result;
         }
 
         [HttpGet("{id}")]
@@ -72,8 +77,7 @@ namespace Article_Backend.Controllers
             Response<Article> result = new Response<Article>();
             try
             {
-                string conn = _configuration.GetValue<string>("ConnectionStrings:DevConnection");
-                using (SqlConnection connection = new SqlConnection(conn))
+                using (SqlConnection connection = new SqlConnection(_connect.DevConnection))
                 {
                     string queryString = @"select [Articles].[Id], [Articles].[Title], [Articles].[User_Id], [User].[Name], [Articles].[Content], [Articles].[CreateDatetime], [Articles].[UpdateDatetime], [Articles].[Editor] 
                                             from [ArticleDB].[dbo].[Articles] 
@@ -85,34 +89,33 @@ namespace Article_Backend.Controllers
                     {
                         new SqlParameter("@Id", SqlDbType.Int){Value = id}
                     });
+                    Article article = new Article();
                     connection.Open();
-                    SqlDataReader reader = command.ExecuteReader();
-                    List<Article> article = new List<Article>();
-                    Article temp = new Article();
-                    if (!reader.HasRows)
+                    using (SqlDataReader reader = command.ExecuteReader())
                     {
-                        result.StatusCode = Status.NotFound;
-                        result.Message = nameof(Status.NotFound);
-                        result.Data = null;
-                        return result;
-                    }
-                    if (reader.Read())
-                    {
-                        temp.Id = reader.GetInt32("Id");
-                        temp.Title = reader.GetString("Title");
-                        temp.User_Id = reader.GetInt32("User_ID");
-                        temp.Name = reader.GetString("Name");
-                        temp.Content = reader.GetString("Content");
-                        temp.CreateDatetime = reader.GetDateTime("CreateDatetime");
-                        temp.UpdateDatetime = reader.GetDateTime("UpdateDatetime");
-                        temp.Editor = reader.GetInt32("Editor");
-                        article.Add(temp);
+                        if (!reader.HasRows)
+                        {
+                            result.StatusCode = Status.NotFound;
+                            result.Message = nameof(Status.NotFound);
+                            result.Data = null;
+                            return result;
+                        }
+                        if (reader.Read())
+                        {
+                            article.Id = reader.GetInt32("Id");
+                            article.Title = reader.GetString("Title");
+                            article.User_Id = reader.GetInt32("User_ID");
+                            article.Name = reader.GetString("Name");
+                            article.Content = reader.GetString("Content");
+                            article.CreateDatetime = reader.GetDateTime("CreateDatetime");
+                            article.UpdateDatetime = reader.GetDateTime("UpdateDatetime");
+                        }
+                        reader.Close();
                     }
                     connection.Close();
                     result.StatusCode = Status.OK;
                     result.Message = nameof(Status.OK);
-                    result.Data = article[0];
-                    return result;
+                    result.Data = article;
                 }
             }
             catch (Exception e)
@@ -121,73 +124,82 @@ namespace Article_Backend.Controllers
                 result.StatusCode = Status.SystemError;
                 result.Message = nameof(Status.SystemError);
                 result.Data = null;
-                return result;
             }
+            return result;
         }
 
-        [Authorize]
+        [TypeFilter(typeof(Authorize))]
         [HttpPut("{id}")]
         public Response<Article> PutArticle([FromRoute] int id, [FromBody] Article article)
         {
             Response<Article> result = new Response<Article>();
             try
             {
-                UserDetail token = (UserDetail)HttpContext.Items["Token"];
                 if (!ModelState.IsValid)
                 {
                     result.StatusCode = Status.BadRequest;
                     result.Message = nameof(Status.BadRequest);
                     result.Data = null;
-                    return result;
                 }
-                if (id != article.Id)
+                else if (id != article.Id)
                 {
                     result.StatusCode = Status.NotFound;
                     result.Message = nameof(Status.NotFound);
                     result.Data = null;
-                    return result;
                 }
-                string conn = _configuration.GetValue<string>("ConnectionStrings:DevConnection");
-                using (SqlConnection connection = new SqlConnection(conn))
+                else
                 {
-                    string queryString1 = @"select [Id] 
-                                            from [ArticleDB].[dbo].[Articles] 
-                                            where [Id]=@Id 
-                                            and [User_Id]=@Token_Id";
-                    SqlCommand command1 = new SqlCommand(queryString1, connection);
-                    command1.Parameters.AddRange(new SqlParameter[]
+                    using (SqlConnection connection = new SqlConnection(_connect.DevConnection))
                     {
-                        new SqlParameter("@Id", SqlDbType.Int){Value = id},
-                        new SqlParameter("@Token_Id", SqlDbType.Int){Value = token.Id}
-                    });
-                    connection.Open();
-                    SqlDataReader reader = command1.ExecuteReader();
-                    if (!reader.HasRows && token.Status != 2)
-                    {
-                        result.StatusCode = Status.Forbidden;
-                        result.Message = nameof(Status.Forbidden);
-                        result.Data = null;
-                        return result;
+                        UserDetail token = (UserDetail)HttpContext.Items["Token"];
+                        string queryString1 = @"select [Id] 
+                                                from [ArticleDB].[dbo].[Articles] 
+                                                where [Id]=@Id ";
+                        if (token.Status != 2)
+                        {
+                            queryString1 = String.Concat(queryString1, "and [User_Id]=@Token_Id");
+                        }
+                        SqlCommand command1 = new SqlCommand(queryString1, connection);
+                        command1.Parameters.AddRange(new SqlParameter[]
+                        {
+                            new SqlParameter("@Id", SqlDbType.Int){Value = id},
+                            new SqlParameter("@Token_Id", SqlDbType.Int){Value = token.Id}
+                        });
+                        connection.Open();
+                        using (SqlDataReader reader = command1.ExecuteReader())
+                        {
+                            if (!reader.HasRows)
+                            {
+                                result.StatusCode = Status.NotFound;
+                                result.Message = nameof(Status.NotFound);
+                                result.Data = null;
+                                return result;
+                            }
+                            reader.Close();
+                        }
+                        connection.Close();
+                        string queryString2 = @"update [ArticleDB].[dbo].[Articles] 
+                                                set [Title]=@Title, [Content]=@Content, [UpdateDatetime]=GETUTCDATE(), [Editor]=@Token_Id 
+                                                where [Id]=@Id";
+                        SqlCommand command2 = new SqlCommand(queryString2, connection);
+                        command2.Parameters.AddRange(new SqlParameter[]
+                        {
+                            new SqlParameter("@Title", SqlDbType.NVarChar, 100){Value = article.Title},
+                            new SqlParameter("@Content",SqlDbType.NVarChar, 2000 ){Value = article.Content},
+                            new SqlParameter("@Token_Id", SqlDbType.Int){Value = token.Id},
+                            new SqlParameter("@Id", SqlDbType.Int){Value = article.Id}
+                        });
+                        connection.Open();
+                        int check = command2.ExecuteNonQuery();
+                        connection.Close();
+                        if (check != 1)
+                        {
+                            throw new Exception("command2 execute failed");
+                        }
                     }
-                    connection.Close();
-                    string queryString2 = @"update [ArticleDB].[dbo].[Articles] 
-                                        set [Title]=@Title, [Content]=@Content, [UpdateDatetime]=GETUTCDATE(), [Editor]=@Token_Id 
-                                        where [Id]=@Id";
-                    SqlCommand command2 = new SqlCommand(queryString2, connection);
-                    command2.Parameters.AddRange(new SqlParameter[]
-                    {
-                    new SqlParameter("@Title", SqlDbType.NVarChar){Value = article.Title},
-                    new SqlParameter("@Content",SqlDbType.NVarChar ){Value = article.Content},
-                    new SqlParameter("@Token_Id", SqlDbType.Int){Value = token.Id},
-                    new SqlParameter("@Id", SqlDbType.Int){Value = article.Id}
-                    });
-                    connection.Open();
-                    int check = command2.ExecuteNonQuery();
-                    connection.Close();
                     result.StatusCode = Status.OK;
                     result.Message = nameof(Status.OK);
                     result.Data = null;
-                    return result;
                 }
             }
             catch (Exception e)
@@ -196,25 +208,27 @@ namespace Article_Backend.Controllers
                 result.StatusCode = Status.SystemError;
                 result.Message = nameof(Status.SystemError);
                 result.Data = null;
-                return result;
             }
+            return result;
         }
 
-        [Authorize]
+        [TypeFilter(typeof(Authorize))]
         [HttpDelete("{id}")]
         public Response<Article> DeleteArticle([FromRoute] int id)
         {
             Response<Article> result = new Response<Article>();
             try
             {
-                UserDetail token = (UserDetail)HttpContext.Items["Token"];
-                string conn = _configuration.GetValue<string>("ConnectionStrings:DevConnection");
-                using (SqlConnection connection = new SqlConnection(conn))
+                using (SqlConnection connection = new SqlConnection(_connect.DevConnection))
                 {
+                    UserDetail token = (UserDetail)HttpContext.Items["Token"];
                     string queryString1 = @"select [Id] 
                                             from [ArticleDB].[dbo].[Articles] 
-                                            where [Id]=@Id 
-                                            and [User_Id]=@Token_Id";
+                                            where [Id]=@Id ";
+                    if (token.Status != 2)
+                    {
+                        queryString1 = String.Concat(queryString1, "and [User_Id]=@Token_Id");
+                    }
                     SqlCommand command1 = new SqlCommand(queryString1, connection);
                     command1.Parameters.AddRange(new SqlParameter[]
                     {
@@ -222,13 +236,16 @@ namespace Article_Backend.Controllers
                         new SqlParameter("@Token_Id", SqlDbType.Int){Value = token.Id}
                     });
                     connection.Open();
-                    SqlDataReader reader = command1.ExecuteReader();
-                    if (!reader.HasRows && token.Status != 2)
+                    using (SqlDataReader reader = command1.ExecuteReader())
                     {
-                        result.StatusCode = Status.Forbidden;
-                        result.Message = nameof(Status.Forbidden);
-                        result.Data = null;
-                        return result;
+                        if (!reader.HasRows)
+                        {
+                            result.StatusCode = Status.NotFound;
+                            result.Message = nameof(Status.NotFound);
+                            result.Data = null;
+                            return result;
+                        }
+                        reader.Close();
                     }
                     connection.Close();
                     string queryString2 = @"delete [ArticleDB].[dbo].[Articles] 
@@ -241,18 +258,14 @@ namespace Article_Backend.Controllers
                     connection.Open();
                     int check = command2.ExecuteNonQuery();
                     connection.Close();
-                    if (check == 0)
+                    if (check != 1)
                     {
-                        result.StatusCode = Status.NotFound;
-                        result.Message = nameof(Status.NotFound);
-                        result.Data = null;
-                        return result;
+                        throw new Exception("command2 execute failed");
                     }
-                    result.StatusCode = Status.OK;
-                    result.Message = nameof(Status.OK);
-                    result.Data = null;
-                    return result;
                 }
+                result.StatusCode = Status.OK;
+                result.Message = nameof(Status.OK);
+                result.Data = null;
             }
             catch (Exception e)
             {
@@ -260,8 +273,8 @@ namespace Article_Backend.Controllers
                 result.StatusCode = Status.SystemError;
                 result.Message = nameof(Status.SystemError);
                 result.Data = null;
-                return result;
             }
+            return result;
         }
 
         [HttpGet("id")]
@@ -270,25 +283,26 @@ namespace Article_Backend.Controllers
             Response<List<int>> result = new Response<List<int>>();
             try
             {
-                string conn = _configuration.GetValue<string>("ConnectionStrings:DevConnection");
-                using (SqlConnection connection = new SqlConnection(conn))
+                List<int> articleId = new List<int>();
+                using (SqlConnection connection = new SqlConnection(_connect.DevConnection))
                 {
                     string queryString = @"select [Articles].[Id] 
                                             from [ArticleDB].[dbo].[Articles]";
                     SqlCommand command = new SqlCommand(queryString, connection);
-                    List<int> articleId = new List<int>();
                     connection.Open();
-                    SqlDataReader reader = command.ExecuteReader();
-                    while (reader.Read())
+                    using (SqlDataReader reader = command.ExecuteReader())
                     {
-                        articleId.Add(reader.GetInt32("Id"));
+                        while (reader.Read())
+                        {
+                            articleId.Add(reader.GetInt32("Id"));
+                        }
+                        reader.Close();
                     }
                     connection.Close();
-                    result.StatusCode = Status.OK;
-                    result.Message = nameof(Status.OK);
-                    result.Data = articleId;
-                    return result;
                 }
+                result.StatusCode = Status.OK;
+                result.Message = nameof(Status.OK);
+                result.Data = articleId;
             }
             catch (Exception e)
             {
@@ -296,21 +310,21 @@ namespace Article_Backend.Controllers
                 result.StatusCode = Status.SystemError;
                 result.Message = nameof(Status.SystemError);
                 result.Data = null;
-                return result;
             }
+            return result;
         }
 
-        [Authorize]
+        [TypeFilter(typeof(Authorize))]
         [HttpGet("id/personal")]
         public Response<List<int>> GetPersonalArticleId()
         {
             Response<List<int>> result = new Response<List<int>>();
             try
             {
-                UserDetail token = (UserDetail)HttpContext.Items["Token"];
-                string conn = _configuration.GetValue<string>("ConnectionStrings:DevConnection");
-                using (SqlConnection connection = new SqlConnection(conn))
+                List<int> articleId = new List<int>();
+                using (SqlConnection connection = new SqlConnection(_connect.DevConnection))
                 {
+                    UserDetail token = (UserDetail)HttpContext.Items["Token"];
                     string queryString = @"select [Articles].[Id] 
                                             from [ArticleDB].[dbo].[Articles] 
                                             where [Articles].[User_Id]=@Token_Id";
@@ -319,19 +333,20 @@ namespace Article_Backend.Controllers
                     {
                         new SqlParameter("@Token_Id", SqlDbType.Int){Value = token.Id}
                     });
-                    List<int> articleId = new List<int>();
                     connection.Open();
-                    SqlDataReader reader = command.ExecuteReader();
-                    while (reader.Read())
+                    using (SqlDataReader reader = command.ExecuteReader())
                     {
-                        articleId.Add(reader.GetInt32("Id"));
+                        while (reader.Read())
+                        {
+                            articleId.Add(reader.GetInt32("Id"));
+                        }
+                        reader.Close();
                     }
                     connection.Close();
-                    result.StatusCode = Status.OK;
-                    result.Message = nameof(Status.OK);
-                    result.Data = articleId;
-                    return result;
                 }
+                result.StatusCode = Status.OK;
+                result.Message = nameof(Status.OK);
+                result.Data = articleId;
             }
             catch (Exception e)
             {
@@ -339,89 +354,88 @@ namespace Article_Backend.Controllers
                 result.StatusCode = Status.SystemError;
                 result.Message = nameof(Status.SystemError);
                 result.Data = null;
-                return result;
             }
+            return result;
         }
 
         [HttpGet("search")]
-        public Response<List<int>> GetSearchIdList([FromQuery] string title, [FromQuery] string author, [FromQuery] string fromDate, [FromQuery] string toDate)
+        public Response<List<int>> GetSearchIdList([FromQuery] Search search)
         {
             Response<List<int>> result = new Response<List<int>>();
             try
             {
-                if (String.IsNullOrEmpty(title + author + fromDate + toDate))
+                if (!ModelState.IsValid)
                 {
                     result.StatusCode = Status.BadRequest;
                     result.Message = nameof(Status.BadRequest);
                     result.Data = null;
-                    return result;
                 }
-                string conn = _configuration.GetValue<string>("ConnectionStrings:DevConnection");
-                using (SqlConnection connection = new SqlConnection(conn))
+                else
                 {
-                    string option = "";
-                    List<string> options = new List<string>();
-                    List<SqlParameter> parameters = new List<SqlParameter>();
-                    if (!String.IsNullOrEmpty(title))
+                    List<int> articleId = new List<int>();
+                    using (SqlConnection connection = new SqlConnection(_connect.DevConnection))
                     {
-                        title = $"%{title}%";
-                        options.Add("[Title] like @Title");
-                        parameters.Add(new SqlParameter("@Title", SqlDbType.NVarChar) { Value = title });
-                    }
-                    if (!String.IsNullOrEmpty(author))
-                    {
-                        options.Add("[User].[Name] = @Author");
-                        parameters.Add(new SqlParameter("@Author", SqlDbType.NVarChar) { Value = author });
+                        string option = "";
+                        List<string> options = new List<string>();
+                        List<SqlParameter> parameters = new List<SqlParameter>();
+                        if (!String.IsNullOrEmpty(search.Title))
+                        {
+                            search.Title = $"%{search.Title}%";
+                            options.Add("[Title] like @Title");
+                            parameters.Add(new SqlParameter("@Title", SqlDbType.NVarChar, 100) { Value = search.Title });
+                        }
+                        if (!String.IsNullOrEmpty(search.Author))
+                        {
+                            options.Add("[User].[Name] = @Author");
+                            parameters.Add(new SqlParameter("@Author", SqlDbType.NVarChar, 20) { Value = search.Author });
+                        }
 
-                    }
-                    if (!String.IsNullOrEmpty(fromDate))
-                    {
                         options.Add("[Articles].[CreateDatetime] >= @FromDate");
-                        parameters.Add(new SqlParameter("@FromDate", SqlDbType.DateTime) { Value = fromDate });
-                    }
-                    if (!String.IsNullOrEmpty(toDate))
-                    {
-                        options.Add("[Articles].[CreateDatetime] <= @ToDate");
-                        parameters.Add(new SqlParameter("@ToDate", SqlDbType.DateTime) { Value = toDate });
+                        parameters.Add(new SqlParameter("@FromDate", SqlDbType.DateTime) { Value = search.FromDate });
 
-                    }
-                    string queryString = @"select [Articles].[Id] 
+                        options.Add("[Articles].[CreateDatetime] <= @ToDate");
+                        parameters.Add(new SqlParameter("@ToDate", SqlDbType.DateTime) { Value = search.ToDate });
+
+                        string queryString = @"select [Articles].[Id] 
                                         from [ArticleDB].[dbo].[Articles] 
                                         inner join [ArticleDB].[dbo].[User] 
                                         on [Articles].[User_Id]=[User].[Id]";
-                    foreach (var item in options.Select((value, index) => new { value, index }))
-                    {
-                        if (item.index == 0)
+                        foreach (var item in options.Select((value, index) => new { value, index }))
                         {
-                            option = String.Concat(option, " where ", item.value);
+                            if (item.index == 0)
+                            {
+                                option = String.Concat(option, " where ", item.value);
+                            }
+                            else
+                            {
+                                option = String.Concat(option, " and ", item.value);
+                            }
                         }
-                        else
+                        SqlCommand command = new SqlCommand(String.Concat(queryString, option), connection);
+                        command.Parameters.AddRange(parameters.ToArray());
+                        connection.Open();
+                        using (SqlDataReader reader = command.ExecuteReader())
                         {
-                            option = String.Concat(option, " and ", item.value);
+                            if (!reader.HasRows)
+                            {
+                                result.StatusCode = Status.NotFound;
+                                result.Message = nameof(Status.NotFound);
+                                result.Data = null;
+                                return result;
+                            }
+                            while (reader.Read())
+                            {
+                                articleId.Add(reader.GetInt32("Id"));
+                            }
+                            reader.Close();
                         }
+                        connection.Close();
                     }
-                    SqlCommand command = new SqlCommand(queryString + option, connection);
-                    command.Parameters.AddRange(parameters.ToArray());
-                    List<int> articleId = new List<int>();
-                    connection.Open();
-                    SqlDataReader reader = command.ExecuteReader();
-                    if (!reader.HasRows)
-                    {
-                        result.StatusCode = Status.NotFound;
-                        result.Message = nameof(Status.NotFound);
-                        result.Data = null;
-                        return result;
-                    }
-                    while (reader.Read())
-                    {
-                        articleId.Add(reader.GetInt32("Id"));
-                    }
-                    connection.Close();
                     result.StatusCode = Status.OK;
                     result.Message = nameof(Status.OK);
                     result.Data = articleId;
-                    return result;
                 }
+
             }
             catch (Exception e)
             {
@@ -429,18 +443,18 @@ namespace Article_Backend.Controllers
                 result.StatusCode = Status.SystemError;
                 result.Message = nameof(Status.SystemError);
                 result.Data = null;
-                return result;
             }
+            return result;
         }
 
         [HttpGet("search/{title}")]
-        public Response<List<Search>> GetSearchList([FromRoute] string title)
+        public Response<List<Result>> GetSearchList([FromRoute] string title)
         {
-            Response<List<Search>> result = new Response<List<Search>>();
+            Response<List<Result>> result = new Response<List<Result>>();
             try
             {
-                string conn = _configuration.GetValue<string>("ConnectionStrings:DevConnection");
-                using (SqlConnection connection = new SqlConnection(conn))
+                List<Result> search = new List<Result>();
+                using (SqlConnection connection = new SqlConnection(_connect.DevConnection))
                 {
                     string queryString = @"select [Id], [Title] 
                                             from [ArticleDB].[dbo].[Articles] 
@@ -449,24 +463,25 @@ namespace Article_Backend.Controllers
                     SqlCommand command = new SqlCommand(queryString, connection);
                     command.Parameters.AddRange(new SqlParameter[]
                     {
-                            new SqlParameter("@Title", SqlDbType.NVarChar){Value = title}
+                        new SqlParameter("@Title", SqlDbType.NVarChar, 100){Value = title}
                     });
-                    List<Search> search = new List<Search>();
                     connection.Open();
-                    SqlDataReader reader = command.ExecuteReader();
-                    while (reader.Read())
+                    using (SqlDataReader reader = command.ExecuteReader())
                     {
-                        Search temp = new Search();
-                        temp.Id = reader.GetInt32("Id");
-                        temp.Title = reader.GetString("Title");
-                        search.Add(temp);
+                        while (reader.Read())
+                        {
+                            Result temp = new Result();
+                            temp.Id = reader.GetInt32("Id");
+                            temp.Title = reader.GetString("Title");
+                            search.Add(temp);
+                        }
+                        reader.Close();
                     }
                     connection.Close();
-                    result.StatusCode = Status.OK;
-                    result.Message = nameof(Status.OK);
-                    result.Data = search;
-                    return result;
                 }
+                result.StatusCode = Status.OK;
+                result.Message = nameof(Status.OK);
+                result.Data = search;
             }
             catch (Exception e)
             {
@@ -474,8 +489,8 @@ namespace Article_Backend.Controllers
                 result.StatusCode = Status.SystemError;
                 result.Message = nameof(Status.SystemError);
                 result.Data = null;
-                return result;
             }
+            return result;
         }
 
         [HttpGet("list")]
@@ -489,61 +504,62 @@ namespace Article_Backend.Controllers
                     result.StatusCode = Status.BadRequest;
                     result.Message = nameof(Status.BadRequest);
                     result.Data = null;
-                    return result;
                 }
-                string conn = _configuration.GetValue<string>("ConnectionStrings:DevConnection");
-                using (SqlConnection connection = new SqlConnection(conn))
+                else
                 {
-                    string[] articleList = list.Split(',');
                     List<Articles> articles = new List<Articles>();
-                    string options = "";
-                    List<SqlParameter> parameters = new List<SqlParameter>();
-                    foreach (var item in articleList.Select((value, index) => new { value, index }))
+                    using (SqlConnection connection = new SqlConnection(_connect.DevConnection))
                     {
-                        if (item.index == 0)
+                        string[] articleList = list.Split(',');
+                        string options = "";
+                        List<SqlParameter> parameters = new List<SqlParameter>();
+                        foreach (var item in articleList.Select((value, index) => new { value, index }))
                         {
-                            options = String.Concat(options, $"@Id_{item.index}");
-                            parameters.Add(new SqlParameter($"@Id_{item.index}", SqlDbType.Int) { Value = Int32.Parse(item.value) });
+                            if (item.index == 0)
+                            {
+                                options = String.Concat(options, $"@Id_{item.index}");
+                                parameters.Add(new SqlParameter($"@Id_{item.index}", SqlDbType.Int) { Value = Int32.Parse(item.value) });
+                            }
+                            else
+                            {
+                                options = String.Concat(options, ",", $"@Id_{item.index}");
+                                parameters.Add(new SqlParameter($"@Id_{item.index}", SqlDbType.Int) { Value = Int32.Parse(item.value) });
+                            }
                         }
-                        else
+                        string queryString = @$"select [Articles].[Id], [User].[Name], [Articles].[Title], [Articles].[CreateDatetime] 
+                                                from [ArticleDB].[dbo].[Articles] 
+                                                inner join [ArticleDB].[dbo].[User] 
+                                                on [Articles].[User_Id]=[User].[Id] 
+                                                where [Articles].[Id] in ({options})";
+                        SqlCommand command = new SqlCommand(queryString, connection);
+                        command.Parameters.AddRange(parameters.ToArray());
+                        connection.Open();
+                        using (SqlDataReader reader = command.ExecuteReader())
                         {
-                            options = String.Concat(options, ",", $"@Id_{item.index}");
-                            parameters.Add(new SqlParameter($"@Id_{item.index}", SqlDbType.Int) { Value = Int32.Parse(item.value) });
+                            if (!reader.HasRows)
+                            {
+                                result.StatusCode = Status.NotFound;
+                                result.Message = nameof(Status.NotFound);
+                                result.Data = null;
+                                return result;
+                            }
+                            while (reader.Read())
+                            {
+                                Articles temp = new Articles();
+                                temp.Id = reader.GetInt32("Id");
+                                temp.Title = reader.GetString("Title");
+                                temp.Name = reader.GetString("Name");
+                                temp.CreateDatetime = reader.GetDateTime("CreateDatetime");
+                                articles.Add(temp);
+                            }
+                            reader.Close();
                         }
+                        connection.Close();
                     }
-                    string queryString = @$"select [Articles].[Id], [User].[Name], [Articles].[Title], [Articles].[CreateDatetime] 
-                                            from [ArticleDB].[dbo].[Articles] 
-                                            inner join [ArticleDB].[dbo].[User] 
-                                            on [Articles].[User_Id]=[User].[Id] 
-                                            where [Articles].[Id] in ({options})";
-
-                    SqlCommand command = new SqlCommand(queryString, connection);
-                    command.Parameters.AddRange(parameters.ToArray());
-                    connection.Open();
-                    SqlDataReader reader = command.ExecuteReader();
-                    if (!reader.HasRows)
-                    {
-                        result.StatusCode = Status.NotFound;
-                        result.Message = nameof(Status.NotFound);
-                        result.Data = null;
-                        return result;
-                    }
-                    while (reader.Read())
-                    {
-                        Articles temp = new Articles();
-                        temp.Id = reader.GetInt32("Id");
-                        temp.Title = reader.GetString("Title");
-                        temp.Name = reader.GetString("Name");
-                        temp.CreateDatetime = reader.GetDateTime("CreateDatetime");
-                        articles.Add(temp);
-                    }
-                    connection.Close();
                     result.StatusCode = Status.OK;
                     result.Message = nameof(Status.OK);
                     result.Data = articles;
-                    return result;
                 }
-
             }
             catch (Exception e)
             {
@@ -551,8 +567,8 @@ namespace Article_Backend.Controllers
                 result.StatusCode = Status.SystemError;
                 result.Message = nameof(Status.SystemError);
                 result.Data = null;
-                return result;
             }
+            return result;
         }
     }
 }

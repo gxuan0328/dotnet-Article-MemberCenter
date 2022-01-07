@@ -3,11 +3,13 @@ using System.Data;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using Article_Backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Article_Backend.Controllers
@@ -16,10 +18,13 @@ namespace Article_Backend.Controllers
     [ApiController]
     public class UserController : ControllerBase
     {
-        private readonly IConfiguration _configuration;
-        public UserController(IConfiguration configuration)
+        private readonly JwtSetting _jwt;
+        private readonly ConnectionStrings _connect;
+
+        public UserController(IOptions<JwtSetting> jwt, IOptions<ConnectionStrings> connect)
         {
-            _configuration = configuration;
+            _jwt = jwt.Value;
+            _connect = connect.Value;
         }
 
         [HttpPost("login")]
@@ -33,71 +38,63 @@ namespace Article_Backend.Controllers
                     result.StatusCode = Status.BadRequest;
                     result.Message = nameof(Status.BadRequest);
                     result.Data = null;
-                    return result;
                 }
-
-                string conn = _configuration.GetValue<string>("ConnectionStrings:DevConnection");
-                using (SqlConnection connection = new SqlConnection(conn))
+                else
                 {
-                    string queryString = @"select [Id], [Name], [Status] 
-                                            from [ArticleDB].[dbo].[User] 
-                                            where [Name]=@Name 
-                                            and [Password]=@Password";
-
-                    SqlCommand command = new SqlCommand(queryString, connection);
-                    command.Parameters.AddRange(new SqlParameter[]
+                    string token = "";
+                    using (SqlConnection connection = new SqlConnection(_connect.DevConnection))
                     {
-                        new SqlParameter("@Name", SqlDbType.NVarChar){Value = user.UserName},
-                        new SqlParameter("@Password", SqlDbType.NVarChar) {Value = user.Password},
-                    });
-                    connection.Open();
-                    SqlDataReader reader = command.ExecuteReader();
-                    if (!reader.HasRows)
-                    {
-                        result.StatusCode = Status.NotFound;
-                        result.Message = nameof(Status.NotFound);
-                        result.Data = null;
-                        return result;
-                    }
-                    UserDetail userDetail = new UserDetail();
-                    if (reader.Read())
-                    {
-                        userDetail.Id = reader.GetInt32("Id");
-                        userDetail.Name = reader.GetString("Name");
-                        userDetail.Status = reader.GetInt32("Status");
-                    }
-                    connection.Close();
-                    byte[] key = Encoding.ASCII.GetBytes(_configuration["JwtSetting:Key"]);
-                    SecurityTokenDescriptor tokenDescriptor = new SecurityTokenDescriptor
-                    {
-                        Subject = new ClaimsIdentity(new Claim[]
+                        string queryString = @"select [Id], [Name], [Status] 
+                                                from [ArticleDB].[dbo].[User] 
+                                                where [Name]=@Name 
+                                                and [Password]=@Password";
+                        SqlCommand command = new SqlCommand(queryString, connection);
+                        command.Parameters.AddRange(new SqlParameter[]
                         {
-                            new Claim("Id",userDetail.Id.ToString(),ClaimValueTypes.Integer32),
-                            new Claim("Name",userDetail.Name),
-                            new Claim("Status",userDetail.Status.ToString(),ClaimValueTypes.Integer32)
-                        }),
-                        Expires = DateTime.Now.AddHours(1),
-                        SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
-                    };
-                    JwtSecurityTokenHandler tokenHandler = new JwtSecurityTokenHandler();
-                    SecurityToken securityToken = tokenHandler.CreateToken(tokenDescriptor);
-                    string token = tokenHandler.WriteToken(securityToken);
-                    string queryString1 = @"update [ArticleDB].[dbo].[Token] 
-                                            set [Token]=@Token, [UpdateDatetime]=GETUTCDATE() 
-                                            where [User_Id]=@User_Id";
-                    SqlCommand command1 = new SqlCommand(queryString1, connection);
-                    command1.Parameters.AddRange(new SqlParameter[]
-                    {
-                        new SqlParameter("@Token", SqlDbType.NVarChar){Value = token},
-                        new SqlParameter("@User_Id", SqlDbType.Int){Value = userDetail.Id}
-                    });
-                    connection.Open();
-                    int check = command1.ExecuteNonQuery();
-                    connection.Close();
+                            new SqlParameter("@Name", SqlDbType.NVarChar, 20){Value = user.UserName},
+                            new SqlParameter("@Password", SqlDbType.NVarChar, 20) {Value = user.Password},
+                        });
+                        UserDetail userDetail = new UserDetail();
+                        connection.Open();
+                        using (SqlDataReader reader = command.ExecuteReader())
+                        {
+                            if (!reader.HasRows)
+                            {
+                                result.StatusCode = Status.NotFound;
+                                result.Message = nameof(Status.NotFound);
+                                result.Data = null;
+                                return result;
+                            }
+                            if (reader.Read())
+                            {
+                                userDetail.Id = reader.GetInt32("Id");
+                                userDetail.Name = reader.GetString("Name");
+                                userDetail.Status = reader.GetInt32("Status");
+                            }
+                            reader.Close();
+                        }
+                        connection.Close();
+                        token = new JwtService().CreateToken(_jwt.Key, userDetail);
+                        string queryString1 = @"update [ArticleDB].[dbo].[Token] 
+                                                set [Token]=@Token, [UpdateDatetime]=GETUTCDATE() 
+                                                where [User_Id]=@User_Id";
+                        SqlCommand command1 = new SqlCommand(queryString1, connection);
+                        command1.Parameters.AddRange(new SqlParameter[]
+                        {
+                            new SqlParameter("@Token", SqlDbType.NVarChar, 500){Value = token},
+                            new SqlParameter("@User_Id", SqlDbType.Int){Value = userDetail.Id}
+                        });
+                        connection.Open();
+                        int check = command1.ExecuteNonQuery();
+                        connection.Close();
+                        if (check != 1)
+                        {
+                            throw new Exception("command1 execute failed");
+                        }
+                    }
                     result.StatusCode = Status.OK;
                     result.Message = nameof(Status.OK);
                     result.Data = token;
-                    return result;
                 }
             }
             catch (Exception e)
@@ -106,8 +103,8 @@ namespace Article_Backend.Controllers
                 result.StatusCode = Status.SystemError;
                 result.Message = nameof(Status.SystemError);
                 result.Data = null;
-                return result;
             }
+            return result;
         }
 
 
@@ -122,57 +119,64 @@ namespace Article_Backend.Controllers
                     result.StatusCode = Status.BadRequest;
                     result.Message = nameof(Status.BadRequest);
                     result.Data = null;
-                    return result;
                 }
-                string conn = _configuration.GetValue<string>("ConnectionStrings:DevConnection");
-                using (SqlConnection connection = new SqlConnection(conn))
+                else
                 {
-                    string queryString1 = @"select [Id] 
-                                            from [ArticleDB].[dbo].[User] 
-                                            where [Name]=@Name";
-                    SqlCommand command1 = new SqlCommand(queryString1, connection);
-                    command1.Parameters.AddRange(new SqlParameter[]
+                    using (SqlConnection connection = new SqlConnection(_connect.DevConnection))
                     {
-                        new SqlParameter("@Name", SqlDbType.NVarChar){Value = user.UserName}
-                    });
-                    connection.Open();
-                    SqlDataReader reader = command1.ExecuteReader();
-                    if (reader.HasRows)
-                    {
-                        result.StatusCode = Status.NotFound;
-                        result.Message = nameof(Status.NotFound);
-                        result.Data = null;
-                        return result;
-                    }
-                    connection.Close();
-                    string queryString2 = @"insert into[ArticleDB].[dbo].[User]
+                        string queryString1 = @"select [Id] 
+                                                from [ArticleDB].[dbo].[User] 
+                                                where [Name]=@Name";
+                        SqlCommand command1 = new SqlCommand(queryString1, connection);
+                        command1.Parameters.AddRange(new SqlParameter[]
+                        {
+                            new SqlParameter("@Name", SqlDbType.NVarChar, 20){Value = user.UserName}
+                        });
+                        connection.Open();
+                        using (SqlDataReader reader = command1.ExecuteReader())
+                        {
+                            if (reader.HasRows)
+                            {
+                                result.StatusCode = Status.NotFound;
+                                result.Message = nameof(Status.NotFound);
+                                result.Data = null;
+                                return result;
+                            }
+                            reader.Close();
+                        }
+                        connection.Close();
+                        string queryString2 = @"insert into[ArticleDB].[dbo].[User]
                                             ([Name], [Password], [Status]) 
                                             values(@Name, @Password, @Status);
                                             select cast(SCOPE_IDENTITY() as int) as Id";
-                    SqlCommand command2 = new SqlCommand(queryString2, connection);
-                    command2.Parameters.AddRange(new SqlParameter[]
-                    {
-                        new SqlParameter("@Name", SqlDbType.NVarChar){Value = user.UserName},
-                        new SqlParameter("@Password", SqlDbType.NVarChar){Value = user.Password},
-                        new SqlParameter("@Status", SqlDbType.Int){Value = 1}
-                    });
-                    connection.Open();
-                    int id = Convert.ToInt32(command2.ExecuteScalar());
-                    connection.Close();
-                    string queryString3 = @"insert into [ArticleDB].[dbo].[Token] ([User_Id]) values(@Id)";
-                    SqlCommand command3 = new SqlCommand(queryString3, connection);
-                    command3.Parameters.AddRange(new SqlParameter[]
-                    {
-                        new SqlParameter("@Id", SqlDbType.Int){Value = id}
-                    });
-                    connection.Open();
-                    int check2 = command3.ExecuteNonQuery();
-                    connection.Close();
+                        SqlCommand command2 = new SqlCommand(queryString2, connection);
+                        command2.Parameters.AddRange(new SqlParameter[]
+                        {
+                            new SqlParameter("@Name", SqlDbType.NVarChar, 20){Value = user.UserName},
+                            new SqlParameter("@Password", SqlDbType.NVarChar, 20){Value = user.Password},
+                            new SqlParameter("@Status", SqlDbType.Int){Value = 1}
+                        });
+                        connection.Open();
+                        int id = Convert.ToInt32(command2.ExecuteScalar());
+                        connection.Close();
+                        string queryString3 = @"insert into [ArticleDB].[dbo].[Token] ([User_Id]) values(@Id)";
+                        SqlCommand command3 = new SqlCommand(queryString3, connection);
+                        command3.Parameters.AddRange(new SqlParameter[]
+                        {
+                            new SqlParameter("@Id", SqlDbType.Int){Value = id}
+                        });
+                        connection.Open();
+                        int check = command3.ExecuteNonQuery();
+                        connection.Close();
+                        if (check != 1)
+                        {
+                            throw new Exception("command3 execute failed");
+                        }
+                    }
+                    result.StatusCode = Status.OK;
+                    result.Message = nameof(Status.OK);
+                    result.Data = null;
                 }
-                result.StatusCode = Status.OK;
-                result.Message = nameof(Status.OK);
-                result.Data = null;
-                return result;
             }
             catch (Exception e)
             {
@@ -180,11 +184,11 @@ namespace Article_Backend.Controllers
                 result.StatusCode = Status.SystemError;
                 result.Message = nameof(Status.SystemError);
                 result.Data = null;
-                return result;
             }
+            return result;
         }
 
-        [Authorize]
+        [TypeFilter(typeof(Authorize))]
         [HttpPut("logout")]
         public Response<string> PutLogout()
         {
@@ -192,8 +196,7 @@ namespace Article_Backend.Controllers
             try
             {
                 UserDetail token = (UserDetail)HttpContext.Items["Token"];
-                string conn = _configuration.GetValue<string>("ConnectionStrings:DevConnection");
-                using (SqlConnection connection = new SqlConnection(conn))
+                using (SqlConnection connection = new SqlConnection(_connect.DevConnection))
                 {
                     string queryString = @"update [ArticleDB].[dbo].[Token] 
                                             set [Token]=@Token, [UpdateDatetime]=GETUTCDATE() 
@@ -201,17 +204,20 @@ namespace Article_Backend.Controllers
                     SqlCommand command = new SqlCommand(queryString, connection);
                     command.Parameters.AddRange(new SqlParameter[]
                     {
-                        new SqlParameter("@Token", SqlDbType.NVarChar){Value = ""},
+                        new SqlParameter("@Token", SqlDbType.NVarChar, 500){Value = ""},
                         new SqlParameter("@Token_Id", SqlDbType.Int){Value = token.Id}
                     });
                     connection.Open();
                     int check = command.ExecuteNonQuery();
                     connection.Close();
-                    result.StatusCode = Status.OK;
-                    result.Message = nameof(Status.OK);
-                    result.Data = null;
-                    return result;
+                    if (check != 1)
+                    {
+                        throw new Exception("command execute failed");
+                    }
                 }
+                result.StatusCode = Status.OK;
+                result.Message = nameof(Status.OK);
+                result.Data = null;
             }
             catch (Exception e)
             {
@@ -219,8 +225,8 @@ namespace Article_Backend.Controllers
                 result.StatusCode = Status.SystemError;
                 result.Message = nameof(Status.SystemError);
                 result.Data = null;
-                return result;
             }
+            return result;
         }
     }
 }
