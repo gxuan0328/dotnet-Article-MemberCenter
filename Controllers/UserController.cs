@@ -188,7 +188,7 @@ namespace Article_Backend.Controllers
             return result;
         }
 
-        [TypeFilter(typeof(Authorize))]
+        [MiddlewareFilter(typeof(AuthorizePipeline))]
         [HttpPut("logout")]
         public Response<string> PutLogout()
         {

@@ -1,41 +1,47 @@
 using System;
 using System.Data;
-using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Text;
+using System.Threading.Tasks;
 using Article_Backend.Services;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
 
-public class AuthorizeAttribute : Attribute, IAuthorizationFilter
+public class AuthorizePipeline
+{
+    public void Configure(IApplicationBuilder app)
+    {
+        app.UseMiddleware<AuthorizeMiddleware>();
+    }
+}
+
+public class AuthorizeMiddleware : IMiddleware
 {
     private readonly JwtSetting _jwt;
     private readonly ConnectionStrings _connect;
 
-    public AuthorizeAttribute(IOptions<JwtSetting> jwt, IOptions<ConnectionStrings> connect)
+    public AuthorizeMiddleware(IOptions<JwtSetting> jwt, IOptions<ConnectionStrings> connect)
     {
         _jwt = jwt.Value;
         _connect = connect.Value;
     }
 
-    public void OnAuthorization(AuthorizationFilterContext context)
+    public Task InvokeAsync(HttpContext context, RequestDelegate next)
     {
         Response<string> result = new Response<string>();
         try
         {
-            if (!context.HttpContext.Request.Headers.TryGetValue("Authorization", out StringValues outValue))
+            if (!context.Request.Headers.TryGetValue("Authorization", out StringValues outValue))
             {
                 result.StatusCode = Status.BadRequest;
                 result.Message = nameof(Status.BadRequest);
                 result.Data = null;
-                context.Result = new JsonResult(result);
+                context.Response.ContentType = "application/json";
+                context.Response.WriteAsync(JsonConvert.SerializeObject(result));
             }
             else
             {
@@ -65,7 +71,8 @@ public class AuthorizeAttribute : Attribute, IAuthorizationFilter
                             result.StatusCode = Status.TokenNotFound;
                             result.Message = nameof(Status.TokenNotFound);
                             result.Data = null;
-                            context.Result = new JsonResult(result);
+                            context.Response.ContentType = "application/json";
+                            context.Response.WriteAsync(JsonConvert.SerializeObject(result));
                         }
                         if (reader.Read())
                         {
@@ -74,11 +81,13 @@ public class AuthorizeAttribute : Attribute, IAuthorizationFilter
                                 result.StatusCode = Status.TokenChanged;
                                 result.Message = nameof(Status.TokenChanged);
                                 result.Data = null;
-                                context.Result = new JsonResult(result);
+                                context.Response.ContentType = "application/json";
+                                context.Response.WriteAsync(JsonConvert.SerializeObject(result));
                             }
                             else
                             {
-                                context.HttpContext.Items.Add("Token", decode);
+                                context.Items.Add("Token", decode);
+                                next.Invoke(context);
                             }
                         }
                         reader.Close();
@@ -93,7 +102,8 @@ public class AuthorizeAttribute : Attribute, IAuthorizationFilter
             result.StatusCode = Status.TokenExpired;
             result.Message = nameof(Status.TokenExpired);
             result.Data = null;
-            context.Result = new JsonResult(result);
+            context.Response.ContentType = "application/json";
+            context.Response.WriteAsync(JsonConvert.SerializeObject(result));
         }
         catch (SecurityTokenValidationException e)
         {
@@ -101,7 +111,8 @@ public class AuthorizeAttribute : Attribute, IAuthorizationFilter
             result.StatusCode = Status.TokenInvalid;
             result.Message = nameof(Status.TokenInvalid);
             result.Data = null;
-            context.Result = new JsonResult(result);
+            context.Response.ContentType = "application/json";
+            context.Response.WriteAsync(JsonConvert.SerializeObject(result));
         }
         catch (Exception e)
         {
@@ -109,9 +120,9 @@ public class AuthorizeAttribute : Attribute, IAuthorizationFilter
             result.StatusCode = Status.SystemError;
             result.Message = nameof(Status.SystemError);
             result.Data = null;
-            context.Result = new JsonResult(result);
+            context.Response.ContentType = "application/json";
+            context.Response.WriteAsync(JsonConvert.SerializeObject(result));
         }
-        
-        return;
+        return Task.CompletedTask;
     }
 }

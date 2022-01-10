@@ -42,6 +42,8 @@ namespace Article_Backend
             services.Configure<ConnectionStrings>(Configuration.GetSection("ConnectionStrings"));
             
             services.Configure<JwtSetting>(Configuration.GetSection("JwtSetting"));
+
+            services.AddTransient<AuthorizeMiddleware>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

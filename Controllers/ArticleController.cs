@@ -21,7 +21,7 @@ namespace Article_Backend.Controllers
             _connect = connect.Value;
         }
 
-        [TypeFilter(typeof(Authorize))]
+        [MiddlewareFilter(typeof(AuthorizePipeline))]
         [HttpPost]
         public Response<Article> PostArticle([FromBody] NewArticle article)
         {
@@ -98,6 +98,8 @@ namespace Article_Backend.Controllers
                             result.StatusCode = Status.NotFound;
                             result.Message = nameof(Status.NotFound);
                             result.Data = null;
+                            reader.Close();
+                            connection.Close();
                             return result;
                         }
                         if (reader.Read())
@@ -128,7 +130,7 @@ namespace Article_Backend.Controllers
             return result;
         }
 
-        [TypeFilter(typeof(Authorize))]
+        [MiddlewareFilter(typeof(AuthorizePipeline))]
         [HttpPut("{id}")]
         public Response<Article> PutArticle([FromRoute] int id, [FromBody] Article article)
         {
@@ -173,6 +175,8 @@ namespace Article_Backend.Controllers
                                 result.StatusCode = Status.NotFound;
                                 result.Message = nameof(Status.NotFound);
                                 result.Data = null;
+                                reader.Close();
+                                connection.Close();
                                 return result;
                             }
                             reader.Close();
@@ -212,7 +216,7 @@ namespace Article_Backend.Controllers
             return result;
         }
 
-        [TypeFilter(typeof(Authorize))]
+        [MiddlewareFilter(typeof(AuthorizePipeline))]
         [HttpDelete("{id}")]
         public Response<Article> DeleteArticle([FromRoute] int id)
         {
@@ -243,6 +247,8 @@ namespace Article_Backend.Controllers
                             result.StatusCode = Status.NotFound;
                             result.Message = nameof(Status.NotFound);
                             result.Data = null;
+                            reader.Close();
+                            connection.Close();
                             return result;
                         }
                         reader.Close();
@@ -314,7 +320,7 @@ namespace Article_Backend.Controllers
             return result;
         }
 
-        [TypeFilter(typeof(Authorize))]
+        [MiddlewareFilter(typeof(AuthorizePipeline))]
         [HttpGet("id/personal")]
         public Response<List<int>> GetPersonalArticleId()
         {
@@ -421,6 +427,8 @@ namespace Article_Backend.Controllers
                                 result.StatusCode = Status.NotFound;
                                 result.Message = nameof(Status.NotFound);
                                 result.Data = null;
+                                reader.Close();
+                                connection.Close();
                                 return result;
                             }
                             while (reader.Read())
@@ -541,6 +549,8 @@ namespace Article_Backend.Controllers
                                 result.StatusCode = Status.NotFound;
                                 result.Message = nameof(Status.NotFound);
                                 result.Data = null;
+                                reader.Close();
+                                connection.Close();
                                 return result;
                             }
                             while (reader.Read())
