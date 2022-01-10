@@ -63,6 +63,8 @@ namespace Article_Backend.Controllers
                                 result.StatusCode = Status.NotFound;
                                 result.Message = nameof(Status.NotFound);
                                 result.Data = null;
+                                reader.Close();
+                                connection.Close();
                                 return result;
                             }
                             if (reader.Read())
@@ -140,6 +142,8 @@ namespace Article_Backend.Controllers
                                 result.StatusCode = Status.NotFound;
                                 result.Message = nameof(Status.NotFound);
                                 result.Data = null;
+                                reader.Close();
+                                connection.Close();
                                 return result;
                             }
                             reader.Close();

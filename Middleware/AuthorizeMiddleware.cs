@@ -86,6 +86,8 @@ public class AuthorizeMiddleware : IMiddleware
                             }
                             else
                             {
+                                reader.Close();
+                                connection.Close();
                                 context.Items.Add("Token", decode);
                                 next.Invoke(context);
                             }
