@@ -12,13 +12,11 @@ using Microsoft.IdentityModel.Tokens;
 
 public class AuthorizeAttribute : Attribute, IAuthorizationFilter
 {
-    private readonly JwtSetting _jwt;
     private readonly ConnectionStrings _connect;
     private readonly JwtService _jwtService;
 
-    public AuthorizeAttribute(IOptions<JwtSetting> jwt, IOptions<ConnectionStrings> connect, JwtService jwtService)
+    public AuthorizeAttribute(IOptions<ConnectionStrings> connect, JwtService jwtService)
     {
-        _jwt = jwt.Value;
         _connect = connect.Value;
         _jwtService = jwtService;
     }
@@ -38,10 +36,7 @@ public class AuthorizeAttribute : Attribute, IAuthorizationFilter
             else
             {
                 string token = outValue.ToString().Replace("Bearer ", "");
-                ClaimsPrincipal claimsPrincipal = new JwtService().DecodeToken(_jwt.Key, token);
-                var a = _jwtService.DecodeToken(_jwt.Key, token);
-                Console.WriteLine($"is equal? {a==claimsPrincipal}");
-                Console.WriteLine($"do twice is equal? {_jwtService.DecodeToken(_jwt.Key, token) == _jwtService.DecodeToken(_jwt.Key, token)}");
+                ClaimsPrincipal claimsPrincipal = _jwtService.DecodeToken(token);
                 UserDetail decode = new UserDetail
                 {
                     Id = Convert.ToInt32(claimsPrincipal.FindFirstValue("Id")),

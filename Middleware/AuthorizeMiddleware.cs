@@ -29,13 +29,13 @@ public class AuthorizePipeline
 
 public class AuthorizeMiddleware : IMiddleware
 {
-    private readonly JwtSetting _jwt;
     private readonly ConnectionStrings _connect;
+    private readonly JwtService _jwtService;
 
-    public AuthorizeMiddleware(IOptions<JwtSetting> jwt, IOptions<ConnectionStrings> connect)
+    public AuthorizeMiddleware(IOptions<ConnectionStrings> connect, JwtService jwtService)
     {
-        _jwt = jwt.Value;
         _connect = connect.Value;
+        _jwtService = jwtService;
     }
 
     public Task InvokeAsync(HttpContext context, RequestDelegate next)
@@ -54,7 +54,7 @@ public class AuthorizeMiddleware : IMiddleware
             else
             {
                 string token = outValue.ToString().Replace("Bearer ", "");
-                ClaimsPrincipal claimsPrincipal = new JwtService().DecodeToken(_jwt.Key, token);
+                ClaimsPrincipal claimsPrincipal = _jwtService.DecodeToken(token);
                 UserDetail decode = new UserDetail
                 {
                     Id = Convert.ToInt32(claimsPrincipal.FindFirstValue("Id")),
