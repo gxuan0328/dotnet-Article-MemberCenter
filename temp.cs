@@ -83,8 +83,8 @@
 //                                     result.StatusCode = Status.Forbidden;
 //                                     result.Message = nameof(Status.Forbidden);
 //                                     result.Data = null;
-//                                     context.Response.StatusCode = 200;
-//                                     context.Response.ContentType = "application/json";
+                                    // context.Response.StatusCode = 200;
+                                    // context.Response.ContentType = "application/json";
 //                                     context.Response.WriteAsync(JsonConvert.SerializeObject(result));
 //                                     return Task.CompletedTask;
 //                                 }
