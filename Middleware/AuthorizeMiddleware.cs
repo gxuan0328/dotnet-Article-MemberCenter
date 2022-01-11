@@ -11,6 +11,14 @@ using Microsoft.Extensions.Primitives;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
 
+public static class AuthorizeMiddlewareExtensions
+{
+    public static IApplicationBuilder UseCustomAuthorize(this IApplicationBuilder builder)
+    {
+        return builder.UseMiddleware<AuthorizeMiddleware>();
+    }
+}
+
 public class AuthorizePipeline
 {
     public void Configure(IApplicationBuilder app)

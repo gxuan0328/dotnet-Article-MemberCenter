@@ -1,16 +1,10 @@
 using System;
 using System.Data;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
 using Article_Backend.Services;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.Tokens;
 
 namespace Article_Backend.Controllers
 {
@@ -191,7 +185,7 @@ namespace Article_Backend.Controllers
             }
             return result;
         }
-
+        
         [MiddlewareFilter(typeof(AuthorizePipeline))]
         [HttpPut("logout")]
         public Response<string> PutLogout()
