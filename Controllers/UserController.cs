@@ -14,11 +14,13 @@ namespace Article_Backend.Controllers
     {
         private readonly JwtSetting _jwt;
         private readonly ConnectionStrings _connect;
+        private readonly JwtService _jwtService;
 
-        public UserController(IOptions<JwtSetting> jwt, IOptions<ConnectionStrings> connect)
+        public UserController(IOptions<JwtSetting> jwt, IOptions<ConnectionStrings> connect, JwtService jwtService)
         {
             _jwt = jwt.Value;
             _connect = connect.Value;
+            _jwtService = jwtService;
         }
 
         [HttpPost("login")]
@@ -70,7 +72,7 @@ namespace Article_Backend.Controllers
                             reader.Close();
                         }
                         connection.Close();
-                        token = new JwtService().CreateToken(_jwt.Key, userDetail);
+                        token = _jwtService.CreateToken(_jwt.Key, userDetail);
                         string queryString1 = @"update [ArticleDB].[dbo].[Token] 
                                                 set [Token]=@Token, [UpdateDatetime]=GETUTCDATE() 
                                                 where [User_Id]=@User_Id";

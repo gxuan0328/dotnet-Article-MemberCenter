@@ -14,11 +14,13 @@ public class AuthorizeAttribute : Attribute, IAuthorizationFilter
 {
     private readonly JwtSetting _jwt;
     private readonly ConnectionStrings _connect;
+    private readonly JwtService _jwtService;
 
-    public AuthorizeAttribute(IOptions<JwtSetting> jwt, IOptions<ConnectionStrings> connect)
+    public AuthorizeAttribute(IOptions<JwtSetting> jwt, IOptions<ConnectionStrings> connect, JwtService jwtService)
     {
         _jwt = jwt.Value;
         _connect = connect.Value;
+        _jwtService = jwtService;
     }
 
     public void OnAuthorization(AuthorizationFilterContext context)
@@ -37,6 +39,9 @@ public class AuthorizeAttribute : Attribute, IAuthorizationFilter
             {
                 string token = outValue.ToString().Replace("Bearer ", "");
                 ClaimsPrincipal claimsPrincipal = new JwtService().DecodeToken(_jwt.Key, token);
+                var a = _jwtService.DecodeToken(_jwt.Key, token);
+                Console.WriteLine($"is equal? {a==claimsPrincipal}");
+                Console.WriteLine($"do twice is equal? {_jwtService.DecodeToken(_jwt.Key, token) == _jwtService.DecodeToken(_jwt.Key, token)}");
                 UserDetail decode = new UserDetail
                 {
                     Id = Convert.ToInt32(claimsPrincipal.FindFirstValue("Id")),
