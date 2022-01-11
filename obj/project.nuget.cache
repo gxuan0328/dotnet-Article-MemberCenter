@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "Ttw0+NWF0G0kuIrdSQdYWd4vOj2nd9/y9o0YT1esvbOhOXSkh7U5s77H3o+n0LmrXbU81l9l0E8rmBaXLDVr8Q==",
+  "dgSpecHash": "rdo+hoGF37yxjZVjLEVELB3Qmzjrjhmfl895guhiw1uGioo41K2Q/motMIKN/CmZJNCZQ0XzZOABo++LU/KHLA==",
   "success": true,
-  "projectFilePath": "c:\\Users\\OAO\\Desktop\\Intern\\ASP.NET\\Article-Backend_sqlcommand\\Article-Backend.csproj",
+  "projectFilePath": "C:\\Users\\OAO\\Desktop\\Intern\\ASP.NET\\Article-Backend\\Article-Backend.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\OAO\\.nuget\\packages\\azure.core\\1.6.0\\azure.core.1.6.0.nupkg.sha512",
     "C:\\Users\\OAO\\.nuget\\packages\\azure.identity\\1.3.0\\azure.identity.1.3.0.nupkg.sha512",
