@@ -19,7 +19,7 @@ namespace Article_Backend.Controllers
             _connect = connect.Value;
         }
 
-        [MiddlewareFilter(typeof(AuthorizePipeline))]
+        [TypeFilter(typeof(AuthorizeAttribute))]
         [HttpPost]
         public Response<Article> PostArticle([FromBody] NewArticle article)
         {
@@ -128,7 +128,7 @@ namespace Article_Backend.Controllers
             return result;
         }
 
-        [MiddlewareFilter(typeof(AuthorizePipeline))]
+        [TypeFilter(typeof(AuthorizeAttribute))]
         [HttpPut("{id}")]
         public Response<Article> PutArticle([FromRoute] int id, [FromBody] Article article)
         {
@@ -214,7 +214,7 @@ namespace Article_Backend.Controllers
             return result;
         }
 
-        [MiddlewareFilter(typeof(AuthorizePipeline))]
+        [TypeFilter(typeof(AuthorizeAttribute))]
         [HttpDelete("{id}")]
         public Response<Article> DeleteArticle([FromRoute] int id)
         {
@@ -318,7 +318,7 @@ namespace Article_Backend.Controllers
             return result;
         }
 
-        [MiddlewareFilter(typeof(AuthorizePipeline))]
+        [TypeFilter(typeof(AuthorizeAttribute))]
         [HttpGet("id/personal")]
         public Response<List<int>> GetPersonalArticleId()
         {
