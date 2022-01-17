@@ -12,5 +12,7 @@ public enum Status
     TokenExpired = 2,
     TokenNotFound = 3,
     TokenChanged = 4,
-
+// --------------------------//
+    LoginFailed = 10,
+    AccountExisted = 11,
 }

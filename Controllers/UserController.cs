@@ -54,8 +54,8 @@ namespace Article_Backend.Controllers
                         {
                             if (!reader.HasRows)
                             {
-                                result.StatusCode = Status.NotFound;
-                                result.Message = nameof(Status.NotFound);
+                                result.StatusCode = Status.LoginFailed;
+                                result.Message = nameof(Status.LoginFailed);
                                 result.Data = null;
                                 reader.Close();
                                 connection.Close();
@@ -133,8 +133,8 @@ namespace Article_Backend.Controllers
                         {
                             if (reader.HasRows)
                             {
-                                result.StatusCode = Status.NotFound;
-                                result.Message = nameof(Status.NotFound);
+                                result.StatusCode = Status.AccountExisted;
+                                result.Message = nameof(Status.AccountExisted);
                                 result.Data = null;
                                 reader.Close();
                                 connection.Close();
@@ -157,11 +157,13 @@ namespace Article_Backend.Controllers
                         connection.Open();
                         int id = Convert.ToInt32(command2.ExecuteScalar());
                         connection.Close();
-                        string queryString3 = @"insert into [ArticleDB].[dbo].[Token] ([User_Id]) values(@Id)";
+                        string queryString3 = @"insert into [ArticleDB].[dbo].[Token] ([User_Id], [Token]) values(@Id, @Token)";
                         SqlCommand command3 = new SqlCommand(queryString3, connection);
                         command3.Parameters.AddRange(new SqlParameter[]
                         {
-                            new SqlParameter("@Id", SqlDbType.Int){Value = id}
+                            new SqlParameter("@Id", SqlDbType.Int){Value = id},
+                            new SqlParameter("@Token", SqlDbType.NVarChar, 500){Value = ""}
+
                         });
                         connection.Open();
                         int check = command3.ExecuteNonQuery();
@@ -193,17 +195,17 @@ namespace Article_Backend.Controllers
             Response<string> result = new Response<string>();
             try
             {
-                UserDetail token = (UserDetail)HttpContext.Items["Token"];
+                UserDetail userDetail = (UserDetail)HttpContext.Items["UserDetail"];
                 using (SqlConnection connection = new SqlConnection(_connect.DevConnection))
                 {
                     string queryString = @"update [ArticleDB].[dbo].[Token] 
                                             set [Token]=@Token, [UpdateDatetime]=GETUTCDATE() 
-                                            where [User_Id]=@Token_Id";
+                                            where [User_Id]=@UserDetail_Id";
                     SqlCommand command = new SqlCommand(queryString, connection);
                     command.Parameters.AddRange(new SqlParameter[]
                     {
                         new SqlParameter("@Token", SqlDbType.NVarChar, 500){Value = ""},
-                        new SqlParameter("@Token_Id", SqlDbType.Int){Value = token.Id}
+                        new SqlParameter("@UserDetail_Id", SqlDbType.Int){Value = userDetail.Id}
                     });
                     connection.Open();
                     int check = command.ExecuteNonQuery();

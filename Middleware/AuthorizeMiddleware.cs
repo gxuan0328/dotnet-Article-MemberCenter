@@ -45,8 +45,8 @@ public class AuthorizeMiddleware : IMiddleware
         {
             if (!context.Request.Headers.TryGetValue("Authorization", out StringValues outValue))
             {
-                result.StatusCode = Status.BadRequest;
-                result.Message = nameof(Status.BadRequest);
+                result.StatusCode = Status.TokenNotFound;
+                result.Message = nameof(Status.TokenNotFound);
                 result.Data = null;
                 context.Response.ContentType = "application/json";
                 context.Response.WriteAsync(JsonConvert.SerializeObject(result));
@@ -63,42 +63,31 @@ public class AuthorizeMiddleware : IMiddleware
                 };
                 using (SqlConnection connection = new SqlConnection(_connect.DevConnection))
                 {
-                    string queryString = @"select [Token] 
+                    string queryString = @"select [Id] 
                                             from [ArticleDB].[dbo].[Token] 
-                                            where [User_Id]=@User_Id";
+                                            where [Token]=@Token";
                     SqlCommand command = new SqlCommand(queryString, connection);
                     command.Parameters.AddRange(new SqlParameter[]
                     {
-                        new SqlParameter("@User_Id", SqlDbType.Int) { Value = decode.Id }
+                        new SqlParameter("@Token", SqlDbType.NVarChar, 500) { Value = token }
                     });
                     connection.Open();
                     using (SqlDataReader reader = command.ExecuteReader())
                     {
                         if (!reader.HasRows)
                         {
-                            result.StatusCode = Status.TokenNotFound;
-                            result.Message = nameof(Status.TokenNotFound);
+                            result.StatusCode = Status.TokenChanged;
+                            result.Message = nameof(Status.TokenChanged);
                             result.Data = null;
                             context.Response.ContentType = "application/json";
                             context.Response.WriteAsync(JsonConvert.SerializeObject(result));
                         }
-                        if (reader.Read())
+                        else
                         {
-                            if (reader.GetString("Token") != token)
-                            {
-                                result.StatusCode = Status.TokenChanged;
-                                result.Message = nameof(Status.TokenChanged);
-                                result.Data = null;
-                                context.Response.ContentType = "application/json";
-                                context.Response.WriteAsync(JsonConvert.SerializeObject(result));
-                            }
-                            else
-                            {
-                                reader.Close();
-                                connection.Close();
-                                context.Items.Add("Token", decode);
-                                next.Invoke(context);
-                            }
+                            reader.Close();
+                            connection.Close();
+                            context.Items.Add("UserDetail", decode);
+                            next.Invoke(context);
                         }
                         reader.Close();
                     }
