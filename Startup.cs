@@ -1,3 +1,4 @@
+using Article_Backend.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
@@ -18,12 +19,10 @@ namespace Article_Backend
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddControllers();
-
             services.AddControllers()
                 .AddJsonOptions(options => options.JsonSerializerOptions.PropertyNamingPolicy = null);
 
-            services.AddCors(options => options.AddDefaultPolicy(builder => builder.WithOrigins(Configuration["CorsSetting:Origins"])
+            services.AddCors(options => options.AddDefaultPolicy(builder => builder.WithOrigins(Configuration.GetSection("CorsSetting:Origins").Value)
                                                                                    .AllowAnyHeader()
                                                                                    .AllowAnyMethod()));
             //禁止自動回傳status code 400
@@ -34,6 +33,8 @@ namespace Article_Backend
             services.Configure<JwtSetting>(Configuration.GetSection("JwtSetting"));
 
             services.AddTransient<AuthorizeMiddleware>();
+
+            services.AddTransient<JwtService>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

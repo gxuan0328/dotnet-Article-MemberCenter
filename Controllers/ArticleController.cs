@@ -26,8 +26,14 @@ namespace Article_Backend.Controllers
             Response<Article> result = new Response<Article>();
             try
             {
-                UserDetail token = (UserDetail)HttpContext.Items["Token"];
+                UserDetail userDetail = (UserDetail)HttpContext.Items["UserDetail"];
                 if (!ModelState.IsValid)
+                {
+                    result.StatusCode = Status.BadRequest;
+                    result.Message = nameof(Status.BadRequest);
+                    result.Data = null;
+                }
+                else if (article.User_Id != userDetail.Id)
                 {
                     result.StatusCode = Status.BadRequest;
                     result.Message = nameof(Status.BadRequest);
@@ -38,12 +44,12 @@ namespace Article_Backend.Controllers
                     using (SqlConnection connection = new SqlConnection(_connect.DevConnection))
                     {
                         string queryString = @"insert into [ArticleDB].[dbo].[Articles] ([Title], [User_Id], [Content], [Editor]) 
-                                                values (@Title, @Token_Id, @Content, @Token_Id)";
+                                                values (@Title, @UserDetail_Id, @Content, @UserDetail_Id)";
                         SqlCommand command = new SqlCommand(queryString, connection);
                         command.Parameters.AddRange(new SqlParameter[]
                         {
                             new SqlParameter("@Title", SqlDbType.NVarChar, 100){Value = article.Title},
-                            new SqlParameter("@Token_Id", SqlDbType.Int){Value = token.Id},
+                            new SqlParameter("@UserDetail_Id", SqlDbType.Int){Value = userDetail.Id},
                             new SqlParameter("@Content", SqlDbType.NVarChar, 2000){Value = article.Content},
                         });
                         connection.Open();
@@ -143,27 +149,27 @@ namespace Article_Backend.Controllers
                 }
                 else if (id != article.Id)
                 {
-                    result.StatusCode = Status.NotFound;
-                    result.Message = nameof(Status.NotFound);
+                    result.StatusCode = Status.BadRequest;
+                    result.Message = nameof(Status.BadRequest);
                     result.Data = null;
                 }
                 else
                 {
                     using (SqlConnection connection = new SqlConnection(_connect.DevConnection))
                     {
-                        UserDetail token = (UserDetail)HttpContext.Items["Token"];
+                        UserDetail userDetail = (UserDetail)HttpContext.Items["UserDetail"];
                         string queryString1 = @"select [Id] 
                                                 from [ArticleDB].[dbo].[Articles] 
                                                 where [Id]=@Id ";
-                        if (token.Status != 2)
+                        if (userDetail.Status != 2)
                         {
-                            queryString1 = String.Concat(queryString1, "and [User_Id]=@Token_Id");
+                            queryString1 = String.Concat(queryString1, "and [User_Id]=@UserDetail_Id");
                         }
                         SqlCommand command1 = new SqlCommand(queryString1, connection);
                         command1.Parameters.AddRange(new SqlParameter[]
                         {
                             new SqlParameter("@Id", SqlDbType.Int){Value = id},
-                            new SqlParameter("@Token_Id", SqlDbType.Int){Value = token.Id}
+                            new SqlParameter("@UserDetail_Id", SqlDbType.Int){Value = userDetail.Id}
                         });
                         connection.Open();
                         using (SqlDataReader reader = command1.ExecuteReader())
@@ -181,14 +187,14 @@ namespace Article_Backend.Controllers
                         }
                         connection.Close();
                         string queryString2 = @"update [ArticleDB].[dbo].[Articles] 
-                                                set [Title]=@Title, [Content]=@Content, [UpdateDatetime]=GETUTCDATE(), [Editor]=@Token_Id 
+                                                set [Title]=@Title, [Content]=@Content, [UpdateDatetime]=GETUTCDATE(), [Editor]=@UserDetail_Id 
                                                 where [Id]=@Id";
                         SqlCommand command2 = new SqlCommand(queryString2, connection);
                         command2.Parameters.AddRange(new SqlParameter[]
                         {
                             new SqlParameter("@Title", SqlDbType.NVarChar, 100){Value = article.Title},
                             new SqlParameter("@Content",SqlDbType.NVarChar, 2000 ){Value = article.Content},
-                            new SqlParameter("@Token_Id", SqlDbType.Int){Value = token.Id},
+                            new SqlParameter("@UserDetail_Id", SqlDbType.Int){Value = userDetail.Id},
                             new SqlParameter("@Id", SqlDbType.Int){Value = article.Id}
                         });
                         connection.Open();
@@ -223,19 +229,19 @@ namespace Article_Backend.Controllers
             {
                 using (SqlConnection connection = new SqlConnection(_connect.DevConnection))
                 {
-                    UserDetail token = (UserDetail)HttpContext.Items["Token"];
+                    UserDetail userDetail = (UserDetail)HttpContext.Items["UserDetail"];
                     string queryString1 = @"select [Id] 
                                             from [ArticleDB].[dbo].[Articles] 
                                             where [Id]=@Id ";
-                    if (token.Status != 2)
+                    if (userDetail.Status != 2)
                     {
-                        queryString1 = String.Concat(queryString1, "and [User_Id]=@Token_Id");
+                        queryString1 = String.Concat(queryString1, "and [User_Id]=@UserDetail_Id");
                     }
                     SqlCommand command1 = new SqlCommand(queryString1, connection);
                     command1.Parameters.AddRange(new SqlParameter[]
                     {
                         new SqlParameter("@Id", SqlDbType.Int){Value = id},
-                        new SqlParameter("@Token_Id", SqlDbType.Int){Value = token.Id}
+                        new SqlParameter("@UserDetail_Id", SqlDbType.Int){Value = userDetail.Id}
                     });
                     connection.Open();
                     using (SqlDataReader reader = command1.ExecuteReader())
@@ -328,14 +334,14 @@ namespace Article_Backend.Controllers
                 List<int> articleId = new List<int>();
                 using (SqlConnection connection = new SqlConnection(_connect.DevConnection))
                 {
-                    UserDetail token = (UserDetail)HttpContext.Items["Token"];
+                    UserDetail userDetail = (UserDetail)HttpContext.Items["UserDetail"];
                     string queryString = @"select [Articles].[Id] 
                                             from [ArticleDB].[dbo].[Articles] 
-                                            where [Articles].[User_Id]=@Token_Id";
+                                            where [Articles].[User_Id]=@UserDetail_Id";
                     SqlCommand command = new SqlCommand(queryString, connection);
                     command.Parameters.AddRange(new SqlParameter[]
                     {
-                        new SqlParameter("@Token_Id", SqlDbType.Int){Value = token.Id}
+                        new SqlParameter("@UserDetail_Id", SqlDbType.Int){Value = userDetail.Id}
                     });
                     connection.Open();
                     using (SqlDataReader reader = command.ExecuteReader())
@@ -446,52 +452,6 @@ namespace Article_Backend.Controllers
             catch (Exception e)
             {
                 Console.WriteLine("Error: " + e.Message);
-                result.StatusCode = Status.SystemError;
-                result.Message = nameof(Status.SystemError);
-                result.Data = null;
-            }
-            return result;
-        }
-
-        [HttpGet("search/{title}")]
-        public Response<List<Result>> GetSearchList([FromRoute] string title)
-        {
-            Response<List<Result>> result = new Response<List<Result>>();
-            try
-            {
-                List<Result> search = new List<Result>();
-                using (SqlConnection connection = new SqlConnection(_connect.DevConnection))
-                {
-                    string queryString = @"select [Id], [Title] 
-                                            from [ArticleDB].[dbo].[Articles] 
-                                            where [Title] like @Title";
-                    title = $"%{title}%";
-                    SqlCommand command = new SqlCommand(queryString, connection);
-                    command.Parameters.AddRange(new SqlParameter[]
-                    {
-                        new SqlParameter("@Title", SqlDbType.NVarChar, 100){Value = title}
-                    });
-                    connection.Open();
-                    using (SqlDataReader reader = command.ExecuteReader())
-                    {
-                        while (reader.Read())
-                        {
-                            Result temp = new Result();
-                            temp.Id = reader.GetInt32("Id");
-                            temp.Title = reader.GetString("Title");
-                            search.Add(temp);
-                        }
-                        reader.Close();
-                    }
-                    connection.Close();
-                }
-                result.StatusCode = Status.OK;
-                result.Message = nameof(Status.OK);
-                result.Data = search;
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine($"ERROR: {e.Message}");
                 result.StatusCode = Status.SystemError;
                 result.Message = nameof(Status.SystemError);
                 result.Data = null;

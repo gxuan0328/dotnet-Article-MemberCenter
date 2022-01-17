@@ -2,15 +2,21 @@ using System;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Article_Backend.Services
 {
     public class JwtService
     {
-        public string CreateToken(string secretKey, UserDetail userDetail)
+        private readonly JwtSetting _jwt;
+        public JwtService(IOptions<JwtSetting> jwt)
         {
-            byte[] key = Encoding.ASCII.GetBytes(secretKey);
+            _jwt = jwt.Value;
+        }
+        public string CreateToken(UserDetail userDetail)
+        {
+            byte[] key = Encoding.ASCII.GetBytes(_jwt.Key);
             SecurityTokenDescriptor tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(new Claim[]
@@ -28,7 +34,7 @@ namespace Article_Backend.Services
             return token;
         }
 
-        public ClaimsPrincipal DecodeToken(string secretKey, String token)
+        public ClaimsPrincipal DecodeToken(String token)
         {
             JwtSecurityTokenHandler handler = new JwtSecurityTokenHandler();
             TokenValidationParameters tokenValidationParameters = new TokenValidationParameters
@@ -36,7 +42,7 @@ namespace Article_Backend.Services
                 ValidateAudience = false,
                 ValidateIssuer = false,
                 ClockSkew = TimeSpan.Zero,
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(secretKey))
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(_jwt.Key))
             };
             ClaimsPrincipal claimsPrincipal = handler.ValidateToken(token, tokenValidationParameters, out SecurityToken securityToken);
             return claimsPrincipal;
